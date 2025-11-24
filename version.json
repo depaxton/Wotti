@@ -1,9 +1,8 @@
 {
-  "version": "1.0.0",
-  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.0/wotti-1.0.0.zip",
+  "version": "1.0.1",
+  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.1/wotti-1.0.1.zip",
   "releaseDate": "2025-11-24",
-  "changelog": "גרסה ראשונה - עם מערכת עדכונים אוטומטית",
+  "changelog": "גרסה 1.0.1 - שיפורים ותכונות חדשות:\n• הוספת אפשרות לערוך שם משתמש בהגדרות פרופיל\n• שיפור חוויית המשתמש בממשק ההגדרות\n• תיקוני באגים קטנים",
   "required": false,
   "minVersion": null
 }
-
