@@ -188,19 +188,29 @@ async function startLoadingDetection(clientInstance) {
           return;
         }
 
-        // Get page content and check for "טעינה" text
+        // Get page content and check for loading text using solution 3 - search all elements
         const pageContent = await page.evaluate(() => {
-          // Check various possible locations where "טעינה" might appear
-          const bodyText = document.body?.innerText || document.body?.textContent || '';
-          // Also check for common loading indicators
-          const loadingIndicators = [
+          // Solution 3: Search through all elements in the page
+          const allElements = document.querySelectorAll('*');
+          const searchTexts = [
+            'הצ\'אטים בטעינה',
+            'הצ'אטים בטעינה',
+            'בטעינה',
+            'הצ\'אטים',
             'טעינה',
             'טעינת',
             'Loading',
             'Loading chats'
           ];
           
-          return loadingIndicators.some(indicator => bodyText.includes(indicator));
+          for (const element of allElements) {
+            const text = element.innerText || element.textContent || '';
+            if (searchTexts.some(searchText => text.includes(searchText))) {
+              return true;
+            }
+          }
+          
+          return false;
         });
 
         if (pageContent) {
@@ -227,15 +237,27 @@ async function startLoadingDetection(clientInstance) {
             attempts++;
             
             const hasLoadingText = await page.evaluate(() => {
-              const bodyText = document.body?.innerText || document.body?.textContent || '';
-              const loadingIndicators = [
+              // Solution 3: Search through all elements in the page
+              const allElements = document.querySelectorAll('*');
+              const searchTexts = [
+                'הצ\'אטים בטעינה',
+                'הצ'אטים בטעינה',
+                'בטעינה',
+                'הצ\'אטים',
                 'טעינה',
                 'טעינת',
                 'Loading',
                 'Loading chats'
               ];
               
-              return loadingIndicators.some(indicator => bodyText.includes(indicator));
+              for (const element of allElements) {
+                const text = element.innerText || element.textContent || '';
+                if (searchTexts.some(searchText => text.includes(searchText))) {
+                  return true;
+                }
+              }
+              
+              return false;
             });
 
             if (hasLoadingText) {

@@ -1,6 +1,6 @@
 {
   "name": "wotti",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Modern Chat UI with WhatsApp integration",
   "type": "module",
   "scripts": {
