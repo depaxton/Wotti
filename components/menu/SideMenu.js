@@ -89,5 +89,35 @@ export function initSideMenu() {
       // appContainer.classList.remove("menu-expanded");
     }
   });
+
+  // Load and display version
+  loadVersion();
+}
+
+/**
+ * Loads and displays the current version
+ */
+async function loadVersion() {
+  const versionElement = document.getElementById("versionNumber");
+  if (!versionElement) {
+    return;
+  }
+
+  try {
+    const API_URL = window.location.hostname === "localhost" 
+      ? "http://localhost:5000" 
+      : `${window.location.protocol}//${window.location.hostname}:5000`;
+    
+    const response = await fetch(`${API_URL}/api/version`);
+    if (response.ok) {
+      const data = await response.json();
+      versionElement.textContent = `v${data.version}`;
+    } else {
+      versionElement.textContent = "N/A";
+    }
+  } catch (error) {
+    console.error("Error loading version:", error);
+    versionElement.textContent = "N/A";
+  }
 }
 

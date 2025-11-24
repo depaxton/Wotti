@@ -76,3 +76,35 @@
   opacity: 1;
 }
 
+.menu-version {
+  padding: 16px 20px;
+  border-top: 1px solid var(--overlay-white-10);
+  color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.version-label {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.version-number {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.side-menu.expanded .version-label,
+.side-menu.expanded .version-number {
+  opacity: 1;
+}
+

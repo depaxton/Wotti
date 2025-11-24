@@ -132,6 +132,138 @@ export async function initializeClient(forceReinit = false) {
 }
 
 /**
+ * Starts monitoring the WhatsApp page for "טוען" (loading) text
+ * Updates status to "loading" when detected
+ * @param {Client} clientInstance - WhatsApp client instance
+ */
+async function startLoadingDetection(clientInstance) {
+  try {
+    // Wait a bit for the page to be ready after authentication
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Get the Puppeteer page from the client
+    // Try different ways to access the page with retries
+    let page = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (!page && attempts < maxAttempts) {
+      try {
+        if (clientInstance.pupPage) {
+          page = clientInstance.pupPage;
+        } else if (clientInstance.pupBrowser) {
+          const pages = await clientInstance.pupBrowser.pages();
+          page = pages[0]; // Get the first page
+        } else if (clientInstance._pupPage) {
+          page = clientInstance._pupPage;
+        }
+        
+        if (page && !page.isClosed()) {
+          break; // Found a valid page
+        } else {
+          page = null; // Reset if page is closed
+        }
+      } catch (error) {
+        // Continue trying
+      }
+      
+      if (!page) {
+        attempts++;
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
+        }
+      }
+    }
+    
+    if (!page) {
+      logWarn("Could not access Puppeteer page for loading detection after multiple attempts");
+      return;
+    }
+
+    // Function to check for "טוען" text on the page
+    const checkForLoadingText = async () => {
+      try {
+        // Check if page is still available
+        if (page.isClosed()) {
+          return;
+        }
+
+        // Get page content and check for "טעינה" text
+        const pageContent = await page.evaluate(() => {
+          // Check various possible locations where "טעינה" might appear
+          const bodyText = document.body?.innerText || document.body?.textContent || '';
+          // Also check for common loading indicators
+          const loadingIndicators = [
+            'טעינה',
+            'טעינת',
+            'Loading',
+            'Loading chats'
+          ];
+          
+          return loadingIndicators.some(indicator => bodyText.includes(indicator));
+        });
+
+        if (pageContent) {
+          logInfo("Detected 'טעינה' (loading) text on WhatsApp page");
+          // Update status to loading
+          qrCodeCallbacks.forEach((callback) => callback(null, "loading"));
+          
+          // Stop checking once we've detected loading
+          return;
+        }
+
+        // Continue checking every 500ms for up to 10 seconds
+        // (in case the text appears later)
+        let attempts = 0;
+        const maxAttempts = 20; // 20 * 500ms = 10 seconds
+        
+        const interval = setInterval(async () => {
+          try {
+            if (page.isClosed()) {
+              clearInterval(interval);
+              return;
+            }
+
+            attempts++;
+            
+            const hasLoadingText = await page.evaluate(() => {
+              const bodyText = document.body?.innerText || document.body?.textContent || '';
+              const loadingIndicators = [
+                'טעינה',
+                'טעינת',
+                'Loading',
+                'Loading chats'
+              ];
+              
+              return loadingIndicators.some(indicator => bodyText.includes(indicator));
+            });
+
+            if (hasLoadingText) {
+              logInfo("Detected 'טעינה' (loading) text on WhatsApp page");
+              qrCodeCallbacks.forEach((callback) => callback(null, "loading"));
+              clearInterval(interval);
+            } else if (attempts >= maxAttempts) {
+              // Stop checking after max attempts
+              clearInterval(interval);
+            }
+          } catch (error) {
+            // Page might be closed or navigated away
+            clearInterval(interval);
+          }
+        }, 500);
+      } catch (error) {
+        logWarn("Error checking for loading text:", error.message);
+      }
+    };
+
+    // Start checking
+    checkForLoadingText();
+  } catch (error) {
+    logWarn("Could not start loading detection:", error.message);
+  }
+}
+
+/**
  * Registers event listeners for the WhatsApp client
  * @param {Client} clientInstance - WhatsApp client instance
  */
@@ -149,10 +281,13 @@ function registerEventListeners(clientInstance) {
   });
 
   // Authentication event
-  clientInstance.on("authenticated", () => {
+  clientInstance.on("authenticated", async () => {
     logInfo("Client authenticated successfully");
     currentQRCode = null; // Clear QR code after authentication
     qrCodeCallbacks.forEach((callback) => callback(null, "authenticated"));
+    
+    // Start monitoring for "טוען" (loading) text on the page
+    startLoadingDetection(clientInstance);
   });
 
   // Ready event

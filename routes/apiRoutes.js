@@ -4,8 +4,15 @@
 import express from "express";
 import { getQr, getStatus, getContacts, getContactsFromJSON, getUserInfoController, logoutController, checkNewMessage } from "../controllers/whatsappController.js";
 import { getSettings, updateSettings, getReminderTemplate, updateReminderTemplate } from "../controllers/settingsController.js";
-import { getUserReminders, saveUserReminders, getAllUsersController, sendReminderManually, getAllRemindersController } from "../controllers/userController.js";
+import { getUserReminders, saveUserReminders, getAllUsersController, sendReminderManually, getAllRemindersController, updateUserName } from "../controllers/userController.js";
 import { manualUpdateCheck, manualUpdateInstall, getUpdateStatus } from "../services/updateService.js";
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 const router = express.Router();
 
@@ -29,7 +36,19 @@ router.get("/users", getAllUsersController);
 router.get("/users/:phone/reminders", getUserReminders);
 router.post("/users/:phone/reminders", saveUserReminders);
 router.post("/users/:phone/send-reminder", sendReminderManually);
+router.put("/users/:phone/name", updateUserName);
 router.get("/reminders/all", getAllRemindersController);
+
+// Version API endpoint
+router.get("/version", async (req, res) => {
+  try {
+    const packageJsonPath = path.join(PROJECT_ROOT, "package.json");
+    const packageJson = await fs.readJson(packageJsonPath);
+    res.json({ version: packageJson.version || "unknown" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Update API endpoints
 router.get("/update/status", async (req, res) => {
