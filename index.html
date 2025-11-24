@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wotti - ממשק צ'אט מודרני</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Arimo:ital,wght@0,400..700;1,400..700&family=Fredoka:wght@300..700&family=Heebo:wght@800&family=Momo+Trust+Display&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Stylesheets - Order matters: variables first, then utilities, then components -->
+    <link rel="stylesheet" href="styles/main.css" />
+    <link rel="stylesheet" href="styles/utilities.css" />
+    <link rel="stylesheet" href="styles/components.css" />
+    <link rel="stylesheet" href="components/contacts/contacts.css" />
+    <link rel="stylesheet" href="components/chat/chat.css" />
+    <link rel="stylesheet" href="components/menu/menu.css" />
+    <link rel="stylesheet" href="components/reminder/reminder.css" />
+    <link rel="stylesheet" href="components/user/user-settings.css" />
+    <link rel="stylesheet" href="components/user/user-profile.css" />
+    <link rel="stylesheet" href="components/qr/qr.css" />
+    <link rel="stylesheet" href="components/loading/loading.css" />
+    <link rel="stylesheet" href="components/toast/toast.css" />
+    <link rel="stylesheet" href="components/reminder/reminder-settings.css" />
+    <link rel="stylesheet" href="components/meeting/meeting.css" />
+    <!-- QR Code Library - Using a working CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Left Sidebar - Contacts -->
+      <div class="contacts-sidebar">
+        <div class="contacts-header">
+          <div class="logo-container">
+            <img src="assets/images/icon-wotti.svg" alt="Wotti Icon" class="logo-icon" />
+            <h1><span class="logo-w">W</span>otti</h1>
+          </div>
+          <button id="refreshContactsButton" class="refresh-button" type="button" title="רענן אנשי קשר">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="contacts-search-container">
+          <input type="text" id="contactsSearchInput" class="contacts-search-input" placeholder="חפש משתמשים..." autocomplete="off" />
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </div>
+        <div class="contacts-list" id="contactsList">
+          <!-- Contacts will be dynamically generated -->
+        </div>
+      </div>
+
+      <!-- Right Side - Chat Area (placeholder for now) -->
+      <div class="chat-area">
+        <div class="chat-placeholder" id="chatPlaceholder">
+          <div class="placeholder-content">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+            <p>התזכורות שלך יופיעו כאן</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side Menu -->
+      <div class="side-menu" id="sideMenu">
+        <div class="menu-toggle" id="menuToggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </div>
+        <div class="menu-items">
+          <div class="menu-item" id="userProfileMenuItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span class="menu-label">הגדרות פרופיל</span>
+          </div>
+          <div class="menu-item" id="reminderSettingsMenuItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            <span class="menu-label">הגדרות תזכורת</span>
+          </div>
+          <div class="menu-item" id="meetingCalendarMenuItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+              <path d="M8 14h.01"></path>
+              <path d="M12 14h.01"></path>
+              <path d="M16 14h.01"></path>
+              <path d="M8 18h.01"></path>
+              <path d="M12 18h.01"></path>
+              <path d="M16 18h.01"></path>
+            </svg>
+            <span class="menu-label">יומן פגישות</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

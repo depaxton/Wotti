@@ -1,0 +1,645 @@
+/* Meeting Calendar Styles */
+
+.meeting-calendar-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Changed from hidden to allow scrollbar */
+}
+
+.meeting-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--color-light-grey);
+  background: var(--gradient-green);
+  color: var(--color-white);
+}
+
+.meeting-calendar-header h2 {
+  font-family: var(--font-hebrew);
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.meeting-calendar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-meeting-calendar-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-white);
+  transition: background-color 0.2s ease, transform 0.5s ease;
+}
+
+.refresh-meeting-calendar-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.close-meeting-calendar-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-white);
+  transition: background-color 0.2s ease;
+}
+
+.close-meeting-calendar-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.meeting-calendar-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--color-light-grey);
+  background: var(--color-white);
+}
+
+.tab-button {
+  padding: 12px 24px;
+  border: 2px solid var(--color-light-grey);
+  background: var(--color-white);
+  border-radius: 8px;
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-medium-grey);
+}
+
+.tab-button:hover {
+  border-color: var(--color-green);
+  color: var(--color-green);
+}
+
+.tab-button.active {
+  background: var(--gradient-green);
+  border-color: transparent;
+  color: var(--color-white);
+}
+
+.meeting-calendar-content {
+  flex: 1;
+  padding: 0;
+  background: var(--color-light-grey);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.meeting-calendar-content > .week-view {
+  /* Padding is set in .week-view itself */
+}
+
+/* Week View Styles - Vertical scroll */
+.week-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px;
+  height: 100%;
+}
+
+.week-day-card {
+  background: var(--color-white);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px var(--shadow-dark-06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+}
+
+.week-day-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-dark-10);
+}
+
+.week-day-card.today {
+  border: 2px solid var(--color-green);
+  background: linear-gradient(135deg, rgba(0, 112, 37, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-light-grey);
+}
+
+.day-name {
+  font-family: var(--font-hebrew);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+}
+
+.day-date {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.day-number {
+  font-family: var(--font-hebrew);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-green);
+}
+
+.day-month {
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-medium-grey);
+}
+
+.week-day-card.today .day-number {
+  color: var(--color-green);
+}
+
+.day-meetings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.no-meetings {
+  text-align: center;
+  padding: 20px;
+  color: var(--color-medium-grey);
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+}
+
+.meeting-item {
+  padding: 12px;
+  background: var(--color-light-grey);
+  border-radius: 8px;
+  border-right: 3px solid var(--color-green);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.meeting-item:hover {
+  background: rgba(0, 112, 37, 0.05);
+  transform: translateX(-2px);
+}
+
+.meeting-time {
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-green);
+  margin-bottom: 4px;
+}
+
+.meeting-title {
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+  margin-bottom: 4px;
+}
+
+.meeting-location {
+  font-family: var(--font-hebrew);
+  font-size: 12px;
+  color: var(--color-medium-grey);
+}
+
+/* Month View Styles */
+.month-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 32px;
+}
+
+.month-header {
+  padding: 24px 32px;
+  background: var(--color-white);
+}
+
+.month-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.month-header-text {
+  text-align: center;
+  flex: 1;
+}
+
+.month-header h3 {
+  font-family: var(--font-hebrew);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+  margin: 0;
+}
+
+.month-meetings-count {
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-green);
+  margin-top: 8px;
+}
+
+.month-nav-btn {
+  background: var(--color-light-grey);
+  border: 2px solid var(--color-light-grey);
+  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-dark-grey);
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.month-nav-btn:hover:not(:disabled) {
+  background: var(--color-green);
+  border-color: var(--color-green);
+  color: var(--color-white);
+  transform: scale(1.05);
+}
+
+.month-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--color-light-grey);
+  border-color: var(--color-light-grey);
+}
+
+.month-nav-btn:disabled:hover {
+  transform: none;
+  background: var(--color-light-grey);
+  border-color: var(--color-light-grey);
+  color: var(--color-dark-grey);
+}
+
+.calendar-day-names {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 32px;
+}
+
+.day-name-cell {
+  text-align: center;
+  padding: 12px;
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-medium-grey);
+  background: var(--color-white);
+  border-radius: 8px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  padding: 0 32px;
+}
+
+.calendar-cell {
+  aspect-ratio: 1;
+  background: var(--color-white);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  box-shadow: 0 1px 3px var(--shadow-dark-05);
+}
+
+.calendar-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-dark-10);
+  border-color: var(--color-green);
+}
+
+.calendar-cell.other-month {
+  opacity: 0.4;
+  background: var(--color-light-grey);
+}
+
+.calendar-cell.today {
+  border: 2px solid var(--color-green);
+  background: linear-gradient(135deg, rgba(0, 112, 37, 0.1) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.calendar-cell.has-meetings {
+  background: var(--color-green);
+  border-color: var(--color-green);
+}
+
+.calendar-cell.has-meetings.today {
+  background: var(--color-green);
+  border-color: var(--color-green);
+}
+
+.cell-day-number {
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+  margin-bottom: 8px;
+}
+
+.calendar-cell.today .cell-day-number {
+  color: var(--color-green);
+  font-size: 18px;
+}
+
+.calendar-cell.has-meetings .cell-day-number {
+  color: var(--color-white);
+  font-size: 18px;
+}
+
+.calendar-cell.has-meetings.today .cell-day-number {
+  color: var(--color-white);
+  font-size: 18px;
+}
+
+.cell-meetings-count {
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-white);
+  text-align: center;
+  margin-top: auto;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  align-self: center;
+  min-width: 24px;
+}
+
+.cell-meetings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.cell-meeting-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-green);
+}
+
+.cell-meeting-more {
+  font-family: var(--font-hebrew);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-medium-grey);
+  margin-right: auto;
+}
+
+/* Day Details Modal */
+.day-details-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(26, 26, 26, 0.6);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.day-details-content {
+  background: var(--color-white);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(26, 26, 26, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.day-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  background: var(--gradient-green);
+  color: var(--color-white);
+}
+
+.day-details-header h3 {
+  font-family: var(--font-hebrew);
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.close-day-details-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-white);
+  transition: background-color 0.2s ease;
+}
+
+.close-day-details-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.day-details-meetings {
+  padding: 24px;
+  max-height: calc(80vh - 80px);
+  overflow-y: auto;
+}
+
+.day-meeting-item {
+  padding: 16px;
+  background: var(--color-light-grey);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  border-right: 4px solid var(--color-green);
+  display: flex;
+  gap: 16px;
+}
+
+.day-meeting-item:last-child {
+  margin-bottom: 0;
+}
+
+.day-meeting-time {
+  font-family: var(--font-hebrew);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-green);
+  min-width: 60px;
+}
+
+.day-meeting-info {
+  flex: 1;
+}
+
+.day-meeting-title {
+  font-family: var(--font-hebrew);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+  margin-bottom: 6px;
+}
+
+.day-meeting-location {
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  color: var(--color-medium-grey);
+  margin-bottom: 4px;
+}
+
+.day-meeting-description {
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  color: var(--color-medium-grey);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .meeting-calendar-header {
+    padding: 20px;
+  }
+
+  .meeting-calendar-header h2 {
+    font-size: 22px;
+  }
+
+  .meeting-calendar-tabs {
+    padding: 16px 20px;
+  }
+
+  .meeting-calendar-content {
+    padding: 20px;
+  }
+
+  .week-day-card {
+    min-width: 250px;
+  }
+
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .calendar-cell {
+    padding: 8px;
+  }
+
+  .cell-day-number {
+    font-size: 14px;
+  }
+
+  .month-header {
+    padding: 16px 20px;
+  }
+
+  .month-header h3 {
+    font-size: 22px;
+  }
+
+  .month-nav-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .month-meetings-count {
+    font-size: 14px;
+  }
+
+  .calendar-day-names,
+  .calendar-grid {
+    padding: 0 20px;
+  }
+
+  .month-view {
+    padding-bottom: 20px;
+  }
+}
+

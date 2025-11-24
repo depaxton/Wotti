@@ -1,0 +1,227 @@
+.reminder-container {
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: var(--color-white);
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reminder-header h2 {
+  font-family: var(--font);
+  font-size: 24px;
+  color: var(--color-dark-grey);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.reminder-header p {
+  color: var(--color-medium-grey);
+  font-size: 14px;
+  font-family: var(--font);
+}
+
+/* Section Styling */
+.reminder-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-label {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--color-medium-grey);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Day Selection */
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.day-btn {
+  padding: 12px 4px;
+  border: 1px solid var(--color-light-grey);
+  background: var(--color-white);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--color-medium-grey);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.day-btn:hover {
+  border-color: var(--color-green);
+  color: var(--color-green);
+  transform: translateY(-1px);
+}
+
+.day-btn.selected {
+  background: var(--gradient-green);
+  color: var(--color-white);
+  border-color: transparent;
+  box-shadow: 0 4px 12px var(--shadow-green-30);
+  font-weight: 600;
+}
+
+/* Time Selection */
+.time-picker-container {
+  position: relative;
+  max-width: 200px;
+}
+
+/* Date Picker Container */
+.date-picker-container {
+  position: relative;
+  max-width: 200px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.time-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--color-light-grey);
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 16px;
+  color: var(--color-dark-grey);
+  outline: none;
+  transition: all 0.2s ease;
+  background: var(--color-white);
+}
+
+.time-input:focus {
+  border-color: var(--color-green);
+  box-shadow: 0 0 0 2px rgba(0, 112, 37, 0.1);
+}
+
+/* Reminder Type */
+.type-selector {
+  display: flex;
+  background: var(--color-light-grey);
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.type-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--color-medium-grey);
+  transition: all 0.2s ease;
+}
+
+.type-btn.selected {
+  background: var(--color-white);
+  color: var(--color-green);
+  box-shadow: 0 2px 4px var(--shadow-dark-05);
+  font-weight: 600;
+}
+
+/* Preview Window */
+.preview-box {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  border-right: 4px solid var(--color-green);
+  margin-top: 8px;
+  position: relative;
+}
+
+.preview-text {
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--color-dark-grey);
+  line-height: 1.6;
+}
+
+.preview-placeholder {
+  color: var(--color-medium-grey);
+  font-style: italic;
+}
+
+/* Action Buttons */
+.actions-row {
+  display: flex;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-light-grey);
+}
+
+.btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-save {
+  background: var(--color-white);
+  border: 1px solid var(--color-light-grey);
+  color: var(--color-dark-grey);
+}
+
+.btn-save:hover {
+  background: var(--color-light-grey);
+  transform: translateY(-1px);
+}
+
+.btn-send {
+  background: var(--gradient-green);
+  color: var(--color-white);
+  box-shadow: 0 4px 12px var(--shadow-green-30);
+}
+
+.btn-send:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow-green-30);
+}
+
+.btn-send:active {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .days-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .actions-row {
+    flex-direction: column;
+  }
+}
+

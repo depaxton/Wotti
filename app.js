@@ -1,0 +1,62 @@
+// Express application setup
+// Configures middleware and mounts routes
+
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { CORS_OPTIONS } from "./config/serverConfig.js";
+import apiRoutes from "./routes/apiRoutes.js";
+
+const app = express();
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Middleware - CORS must be first
+app.use(cors(CORS_OPTIONS));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging middleware (skip /api/status to reduce noise)
+app.use((req, res, next) => {
+  // Skip logging for /api/status requests
+  if (req.url !== '/api/status') {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log('Origin:', req.headers.origin);
+  }
+  next();
+});
+
+// Handle preflight requests
+app.options('*', cors(CORS_OPTIONS));
+
+// Serve static files (HTML, CSS, JS, assets) - MUST be before API routes
+app.use(express.static(__dirname, {
+  setHeaders: (res, filePath) => {
+    // Set correct MIME type for JavaScript modules
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Server is running' });
+});
+
+// Mount routes
+app.use("/api", apiRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ 
+    error: err.message || 'Internal Server Error' 
+  });
+});
+
+export default app;
+

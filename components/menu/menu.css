@@ -1,0 +1,78 @@
+/* Side Menu Styles */
+
+.side-menu {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  background: var(--gradient-green);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+  width: 70px;
+  z-index: 1000;
+  box-shadow: 2px 0 8px var(--shadow-dark-10);
+}
+
+.side-menu.expanded {
+  width: 250px;
+}
+
+.menu-toggle {
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-white);
+  border-bottom: 1px solid var(--overlay-white-10);
+  transition: background-color 0.2s ease;
+}
+
+.menu-toggle:hover {
+  background-color: var(--overlay-white-10);
+}
+
+.menu-items {
+  flex: 1;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  color: var(--color-white);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+  gap: 16px;
+}
+
+.menu-item:hover {
+  background-color: var(--overlay-white-15);
+}
+
+.menu-item svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.menu-label {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.side-menu.expanded .menu-label {
+  opacity: 1;
+}
+

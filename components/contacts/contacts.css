@@ -1,0 +1,316 @@
+/* Contacts Sidebar Styles */
+
+.contacts-sidebar {
+  width: 25%;
+  min-width: 320px;
+  max-width: 420px;
+  background-color: var(--color-white);
+  border-left: 1px solid var(--color-light-grey);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-shadow: 2px 0 8px var(--shadow-dark-04);
+}
+
+.contacts-header {
+  padding: 20px 24px;
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-light-grey);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+}
+
+.contacts-header h1 {
+  font-family: "Momo Trust Display", sans-serif;
+  font-size: 41px;
+  font-weight: 800;
+  color: var(--color-dark-grey);
+  margin: 0;
+  direction: ltr; /* Force LTR for logo to use English font */
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  transform: translateY(-4px);
+}
+
+.contacts-search-container {
+  position: relative;
+  padding: 12px 16px;
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-light-grey);
+}
+
+.contacts-search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  font-family: var(--font-hebrew);
+  font-size: 13px;
+  color: var(--color-dark-grey);
+  background-color: var(--color-light-grey);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.contacts-search-input::placeholder {
+  color: var(--color-medium-grey);
+  opacity: 0.7;
+}
+
+.contacts-search-input:focus {
+  background-color: var(--color-white);
+  border-color: var(--color-green);
+  box-shadow: 0 0 0 2px rgba(0, 112, 37, 0.1);
+}
+
+.contacts-search-container .search-icon {
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-medium-grey);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.contacts-search-container:focus-within .search-icon {
+  color: var(--color-green);
+}
+
+.contacts-empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--color-medium-grey);
+}
+
+.refresh-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-medium-grey);
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background-color: var(--color-light-grey);
+  color: var(--color-green);
+  transform: rotate(90deg);
+}
+
+.refresh-button:active:not(:disabled) {
+  transform: rotate(180deg);
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logo-w {
+  background: var(--gradient-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-family: "Momo Trust Display", sans-serif;
+  direction: ltr; /* Force LTR for logo to use English font */
+}
+
+.contacts-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--color-light-grey);
+  padding: 12px;
+}
+
+/* Hidden Scrollbar Styling */
+.contacts-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.contacts-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contacts-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-medium-grey);
+  border-radius: 3px;
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+
+.contacts-list:hover::-webkit-scrollbar-thumb {
+  opacity: 0.5;
+}
+
+.contacts-list::-webkit-scrollbar-thumb:hover {
+  opacity: 0.7;
+}
+
+/* Firefox scrollbar */
+.contacts-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-medium-grey) transparent;
+}
+
+/* Contact Item */
+.contact-item {
+  display: flex;
+  align-items: center;
+  padding: 10.8px 14.4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-right: 2.7px solid transparent;
+  background-color: var(--color-white);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.contact-item:hover {
+  background-color: var(--color-white);
+  box-shadow: 0 2px 4px var(--shadow-dark-05);
+}
+
+.contact-item.active {
+  background-color: var(--color-white);
+  border-right-color: var(--color-green);
+  box-shadow: 0 2px 4px var(--shadow-dark-05);
+}
+
+.contact-avatar {
+  width: 35.28px;
+  height: 35.28px;
+  border-radius: 50%;
+  background: var(--color-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-white);
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 10.368px;
+  flex-shrink: 0;
+  margin-left: 10.8px;
+  box-shadow: 0 1.8px 3.6px var(--shadow-dark-10);
+}
+
+.contact-avatar svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.contact-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-name {
+  font-family: var(--font);
+  font-size: 12.24px;
+  font-weight: 500;
+  color: var(--color-dark-grey);
+  margin-bottom: 3.6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-preview {
+  font-family: var(--font);
+  font-size: 10.08px;
+  color: var(--color-medium-grey);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 10.8px;
+  flex-shrink: 0;
+}
+
+.contact-time-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.contact-time {
+  font-family: var(--font);
+  font-size: 8.64px;
+  color: var(--color-medium-grey);
+}
+
+.contact-date {
+  font-family: var(--font);
+  font-size: 7.92px;
+  color: var(--color-medium-grey);
+  opacity: 0.8;
+}
+
+.contact-badge {
+  background-color: var(--color-green);
+  color: var(--color-white);
+  border-radius: 9px;
+  padding: 1.8px 5.4px;
+  font-family: var(--font);
+  font-size: 8.64px;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 0.9px 1.8px var(--shadow-green-30);
+}
+
+/* Bounce animation */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  75% {
+    transform: translateY(-2px);
+  }
+}
+
+.contact-item.bounce {
+  animation: bounce 0.5s ease;
+}

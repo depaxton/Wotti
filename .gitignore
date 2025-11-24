@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# User data and session (never commit these!)
+.wwebjs_auth/
+data/
+
+# Update temporary files
+updates/temp/
+updates/backup/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+
+# Build outputs (if any)
+dist/
+build/
+

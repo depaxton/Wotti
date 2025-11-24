@@ -1,0 +1,175 @@
+# Wotti Project Rules
+
+## Auto-Update System - Release Process
+
+When the user requests to "prepare an update", "release an update", "שחרור עדכון", "הכן עדכון", or similar phrases, follow this EXACT process:
+
+### STEP 1: Update Version in package.json
+- Read current version from package.json
+- Ask user which version increment type they want:
+  - **Patch** (1.0.0 → 1.0.1) - bug fixes
+  - **Minor** (1.0.1 → 1.0.2) - new features
+  - **Major** (1.1.0 → 2.0.0) - breaking changes
+- Update the "version" field in package.json
+- If user specifies version directly (e.g., "v1.2.3"), use that version
+
+### STEP 2: Create Update Package (ZIP)
+- Create a ZIP file containing all project files EXCEPT:
+  - `node_modules/` - exclude completely
+  - `.wwebjs_auth/` - exclude completely (user session data)
+  - `data/` - exclude completely (user data must not be overwritten)
+  - `updates/` - exclude if exists (temporary folder)
+  - `.git/` - exclude if exists
+  - `*.log` - exclude all log files
+  - `.cursorrules` - exclude (internal development file)
+  - `.gitignore` - exclude (optional, but recommended)
+- ZIP filename format: `wotti-{version}.zip` (e.g., `wotti-1.0.1.zip`)
+- Save ZIP in project root or ask user where to save it
+- Verify ZIP contains essential files: package.json, index.js, app.js, services/, components/, etc.
+
+### STEP 3: Prepare version.json
+Create/update a version.json file with this EXACT structure:
+```json
+{
+  "version": "{NEW_VERSION}",
+  "downloadUrl": "{URL_TO_ZIP_FILE}",
+  "releaseDate": "{CURRENT_DATE_YYYY-MM-DD}",
+  "changelog": "{USER_PROVIDED_CHANGELOG_OR_ASK_USER}",
+  "required": false,
+  "minVersion": null
+}
+```
+
+- Ask user for changelog if not provided
+- Set `required: true` only if update is critical/breaking
+- Set `minVersion` if update requires minimum version
+
+### STEP 4: Instructions for User
+Provide clear, numbered instructions:
+1. Upload the ZIP file to update server (GitHub Releases / CDN / Own server)
+2. Get the direct download URL to the ZIP file
+3. Update the version.json file on the server with the correct downloadUrl
+4. Verify the version.json is accessible at the configured URL (from updateConfig.js)
+5. Test the update process on a test machine if possible
+
+### STEP 5: Update Service Files Checklist
+When implementing/updating the update system, ensure these files exist:
+- ✅ `config/updateConfig.js` - Update configuration
+- ✅ `services/updateService.js` - Main update service
+- ✅ `utils/updateUtils.js` - Update utilities (download, extract, install)
+- ✅ Update `package.json` with required dependencies
+- ✅ Integrate update service in `index.js`
+
+## Update System Implementation Rules
+
+### Required NPM Packages:
+- `axios` or `node-fetch` - for downloading files
+- `adm-zip` - for extracting ZIP files
+- `semver` - for version comparison
+- `fs-extra` - for enhanced file operations (might already be available)
+
+### Update Service Requirements:
+1. **Check for updates** every X minutes (configurable in updateConfig.js)
+2. **Download update ZIP** to temporary directory
+3. **Validate ZIP** before extraction (check size, format)
+4. **Backup current version** before updating
+5. **Extract ZIP** to temporary location
+6. **Validate extracted files** (check package.json version)
+7. **Replace files** (excluding data/, node_modules/, .wwebjs_auth/)
+8. **Run npm install** after file replacement
+9. **Restart application** automatically
+10. **Handle errors** gracefully with rollback capability
+11. **Log all operations** using utils/logger.js
+
+### Critical Safety Rules:
+- ❌ **NEVER** overwrite `data/` folder (user data must be preserved)
+- ❌ **NEVER** overwrite `.wwebjs_auth/` folder (WhatsApp session)
+- ❌ **NEVER** delete `node_modules/` (must run npm install after update)
+- ✅ **ALWAYS** create backup before updating
+- ✅ **ALWAYS** validate update package before installation
+- ✅ **ALWAYS** log all update operations
+- ✅ **ALWAYS** provide rollback mechanism on failure
+
+### File Structure for Update System:
+```
+services/
+  └── updateService.js    # Main service - checks, downloads, installs
+utils/
+  └── updateUtils.js      # Utilities: downloadFile, extractZip, backupFiles
+config/
+  └── updateConfig.js     # Configuration: URLs, intervals, paths
+updates/
+  ├── temp/              # Temporary downloads
+  └── backup/            # Version backups
+```
+
+### Integration Points:
+1. **index.js** - Initialize update service after server starts
+2. **systemTray.js** - Optionally add "Check for Updates" menu item
+3. **Frontend** - Add update notification UI component
+4. **Logger** - Use existing logger from utils/logger.js
+
+## Code Style & Best Practices
+
+### General Rules:
+- Use ES6 modules (import/export) - no CommonJS require()
+- Follow existing code structure and patterns
+- Use async/await for all asynchronous operations
+- Use try/catch for error handling with proper logging
+- Use existing logger: `import { logInfo, logError, logWarn } from "./utils/logger.js"`
+- Write clear, descriptive variable and function names
+- Add JSDoc comments for exported functions
+- Follow Hebrew comments pattern (as seen in existing code)
+
+### Error Handling:
+- Always catch errors and log them properly
+- Never crash the application on update failures
+- Provide meaningful error messages in Hebrew when possible
+- Fallback to graceful degradation if update service fails
+
+### Testing:
+- Test update process on separate test instance
+- Verify user data is preserved
+- Verify WhatsApp session is preserved
+- Test rollback mechanism
+- Test network failure scenarios
+
+## Additional Project Context
+
+### Important Directories:
+- `data/` - User data (reminders.json, settings.json, users.json) - NEVER overwrite
+- `.wwebjs_auth/` - WhatsApp authentication session - NEVER overwrite
+- `services/` - Business logic services
+- `components/` - UI components
+- `config/` - Configuration files
+- `utils/` - Utility functions
+
+### Application Type:
+- Node.js Express server application
+- Runs on port 5000 (configurable in config/serverConfig.js)
+- Uses WhatsApp Web.js for messaging
+- Has system tray integration (Windows)
+- Single-user desktop application
+
+### Update Flow Summary:
+1. User releases update → creates ZIP → uploads to server → updates version.json
+2. Client apps check version.json periodically (every 10 minutes)
+3. If new version found → download → backup → extract → replace → npm install → restart
+4. All happens automatically in background
+
+## When User Says "Release Update" or "שחרור עדכון":
+
+Execute this workflow:
+1. ✅ Confirm version increment type or use specified version
+2. ✅ Update package.json version
+3. ✅ Create ZIP excluding protected folders
+4. ✅ Generate version.json template
+5. ✅ Provide clear upload instructions
+6. ✅ Remind about testing the update
+
+Do NOT:
+- ❌ Skip version number update
+- ❌ Include user data folders in ZIP
+- ❌ Forget to ask for changelog
+- ❌ Skip validation steps
+
