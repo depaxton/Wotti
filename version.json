@@ -1,8 +1,8 @@
 {
-  "version": "1.0.5",
-  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.5/wotti-1.0.5.zip",
-  "releaseDate": "2025-11-24",
-  "changelog": "גרסה 1.0.5 - תיקוני באגים ושיפורים",
+  "version": "1.0.6",
+  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.6/wotti-1.0.6.zip",
+  "releaseDate": "2025-12-03",
+  "changelog": "גרסה 1.0.6 - תיקוני באגים ושיפורים",
   "required": false,
   "minVersion": null
 }
