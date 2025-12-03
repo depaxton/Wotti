@@ -8,16 +8,7 @@ import axios from "axios";
 import semver from "semver";
 import { UPDATE_CONFIG } from "../config/updateConfig.js";
 import { logInfo, logError, logWarn } from "../utils/logger.js";
-import {
-  downloadFile,
-  validateZipFile,
-  extractZip,
-  createBackup,
-  restoreFromBackup,
-  installUpdate,
-  runNpmInstall,
-  cleanupOldBackups,
-} from "../utils/updateUtils.js";
+import { downloadFile, validateZipFile, extractZip, createBackup, restoreFromBackup, installUpdate, runNpmInstall, cleanupOldBackups } from "../utils/updateUtils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,15 +39,18 @@ async function getCurrentVersion() {
  */
 async function fetchVersionInfo() {
   try {
+    // Add timestamp to URL to bypass cache
+    const urlWithCacheBust = `${UPDATE_CONFIG.UPDATE_CHECK_URL}?t=${Date.now()}`;
     logInfo(`Checking for updates from: ${UPDATE_CONFIG.UPDATE_CHECK_URL}`);
-    
-    const response = await axios.get(UPDATE_CONFIG.UPDATE_CHECK_URL, {
+
+    const response = await axios.get(urlWithCacheBust, {
       timeout: 10000, // 10 seconds timeout
       headers: {
         "Cache-Control": "no-cache",
+        Pragma: "no-cache",
       },
     });
-    
+
     return response.data;
   } catch (error) {
     if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
@@ -78,18 +72,18 @@ async function checkForUpdate() {
       logWarn("Update already in progress, skipping check");
       return null;
     }
-    
+
     currentVersion = await getCurrentVersion();
     logInfo(`Current version: ${currentVersion}`);
-    
+
     const versionInfo = await fetchVersionInfo();
     if (!versionInfo || !versionInfo.version) {
       return null;
     }
-    
+
     const remoteVersion = versionInfo.version;
     logInfo(`Remote version: ${remoteVersion}`);
-    
+
     // Compare versions using semver
     if (semver.gt(remoteVersion, currentVersion)) {
       logInfo(`Update available: ${currentVersion} → ${remoteVersion}`);
@@ -118,38 +112,34 @@ async function downloadAndInstallUpdate(updateInfo) {
     logWarn("Update already in progress");
     return false;
   }
-  
+
   isUpdating = true;
-  
+
   try {
     logInfo(`Starting update process: ${updateInfo.currentVersion} → ${updateInfo.remoteVersion}`);
-    
+
     // Stop update checking during update process
     stopUpdateChecker();
-    
+
     // Create temporary directories
     const tempDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_TEMP_DIR);
     const backupDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_BACKUP_DIR);
     await fs.ensureDir(tempDir);
     await fs.ensureDir(backupDir);
-    
+
     // Step 1: Create backup
     logInfo("Step 1: Creating backup...");
     await createBackup(backupDir, currentVersion);
-    
+
     // Step 2: Download update
     logInfo("Step 2: Downloading update...");
     const zipFileName = `wotti-${updateInfo.remoteVersion}.zip`;
     const zipPath = path.join(tempDir, zipFileName);
-    
+
     let downloadSuccess = false;
     for (let attempt = 1; attempt <= UPDATE_CONFIG.MAX_DOWNLOAD_ATTEMPTS; attempt++) {
       try {
-        await downloadFile(
-          updateInfo.downloadUrl,
-          zipPath,
-          UPDATE_CONFIG.DOWNLOAD_TIMEOUT
-        );
+        await downloadFile(updateInfo.downloadUrl, zipPath, UPDATE_CONFIG.DOWNLOAD_TIMEOUT);
         downloadSuccess = true;
         break;
       } catch (error) {
@@ -160,59 +150,59 @@ async function downloadAndInstallUpdate(updateInfo) {
         }
       }
     }
-    
+
     if (!downloadSuccess) {
       throw new Error("Failed to download update after multiple attempts");
     }
-    
+
     // Step 3: Validate ZIP
     logInfo("Step 3: Validating update package...");
     const isValid = await validateZipFile(zipPath);
     if (!isValid) {
       throw new Error("Update package validation failed");
     }
-    
+
     // Step 4: Extract ZIP
     logInfo("Step 4: Extracting update package...");
     const extractedDir = path.join(tempDir, "extracted");
     await extractZip(zipPath, extractedDir);
-    
+
     // Step 5: Install update
     logInfo("Step 5: Installing update...");
     await installUpdate(extractedDir);
-    
+
     // Step 6: Run npm install
     if (UPDATE_CONFIG.RUN_NPM_INSTALL) {
       logInfo("Step 6: Running npm install...");
       await runNpmInstall();
     }
-    
+
     // Step 7: Cleanup old backups
     logInfo("Step 7: Cleaning up old backups...");
     await cleanupOldBackups(backupDir, UPDATE_CONFIG.MAX_BACKUPS);
-    
+
     // Step 8: Cleanup temporary files
     logInfo("Step 8: Cleaning up temporary files...");
     await fs.remove(tempDir);
-    
+
     logInfo(`Update completed successfully: ${updateInfo.currentVersion} → ${updateInfo.remoteVersion}`);
-    
+
     // Step 9: Restart application
     logInfo("Restarting application in 2 seconds...");
     await new Promise((resolve) => setTimeout(resolve, UPDATE_CONFIG.RESTART_DELAY));
-    
+
     // Restart the application
     restartApplication();
-    
+
     return true;
   } catch (error) {
     logError("Update failed, attempting rollback...", error);
-    
+
     // Attempt rollback
     try {
       const backupDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_BACKUP_DIR);
       const backupPath = path.join(backupDir, `v${currentVersion}`);
-      
+
       if (await fs.pathExists(backupPath)) {
         logInfo("Restoring from backup...");
         await restoreFromBackup(backupPath);
@@ -224,7 +214,7 @@ async function downloadAndInstallUpdate(updateInfo) {
       logError("Rollback failed", rollbackError);
       logError("Application may be in inconsistent state - manual intervention required");
     }
-    
+
     // Cleanup temporary files even on failure
     try {
       const tempDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_TEMP_DIR);
@@ -232,10 +222,10 @@ async function downloadAndInstallUpdate(updateInfo) {
     } catch (cleanupError) {
       // Ignore cleanup errors
     }
-    
+
     // Restart update checker
     startUpdateChecker();
-    
+
     isUpdating = false;
     return false;
   }
@@ -246,31 +236,46 @@ async function downloadAndInstallUpdate(updateInfo) {
  */
 async function restartApplication() {
   logInfo("Restarting application...");
-  
+
   try {
-    // On Windows, try to use the launcher script
+    // On Windows, use restart-after-wake.vbs for silent restart
     if (process.platform === "win32") {
       const { spawn } = await import("child_process");
-      const launcherPath = path.join(PROJECT_ROOT, "launch-wotti.vbs");
-      
-      const exists = await fs.pathExists(launcherPath);
+      const restartVbsPath = path.join(PROJECT_ROOT, "restart-after-wake.vbs");
+
+      const exists = await fs.pathExists(restartVbsPath);
       if (exists) {
-        spawn("wscript", [launcherPath], {
+        logInfo(`Running restart script: ${restartVbsPath}`);
+
+        // Use wscript to run VBS silently (no CMD window)
+        // wscript runs VBS scripts without showing any window
+        spawn("wscript.exe", [restartVbsPath], {
           detached: true,
           stdio: "ignore",
+          windowsHide: true,
         }).unref();
-        
+
         // Give it a moment to start, then exit
         setTimeout(() => {
           process.exit(0);
         }, 1000);
         return;
+      } else {
+        logWarn("restart-after-wake.vbs not found, trying fallback...");
       }
     }
-    
-    // If launcher not found or not Windows, just exit
-    // The user or system service will restart the app
-    logInfo("No launcher found, exiting. Please restart manually.");
+
+    // Fallback for Linux/Mac or if VBS not found - spawn node directly
+    const { spawn } = await import("child_process");
+    const indexPath = path.join(PROJECT_ROOT, "index.js");
+
+    spawn("node", [indexPath], {
+      detached: true,
+      stdio: "ignore",
+      cwd: PROJECT_ROOT,
+    }).unref();
+
+    logInfo("Spawned new process, exiting current...");
     setTimeout(() => {
       process.exit(0);
     }, 1000);
@@ -291,19 +296,19 @@ export function startUpdateChecker() {
     logInfo("Auto-update is disabled");
     return;
   }
-  
+
   if (updateCheckInterval) {
     logWarn("Update checker already running");
     return;
   }
-  
+
   logInfo(`Starting update checker (interval: ${UPDATE_CONFIG.UPDATE_CHECK_INTERVAL} minutes)`);
-  
+
   // Check immediately on startup
   checkForUpdateAndInstall().catch((error) => {
     logError("Error in initial update check", error);
   });
-  
+
   // Then check periodically
   const intervalMs = UPDATE_CONFIG.UPDATE_CHECK_INTERVAL * 60 * 1000;
   updateCheckInterval = setInterval(() => {
@@ -333,12 +338,12 @@ async function checkForUpdateAndInstall(forceCheck = false) {
   if (isUpdating && !forceCheck) {
     return false;
   }
-  
+
   const updateInfo = await checkForUpdate();
   if (!updateInfo) {
     return false;
   }
-  
+
   // Check if update is required
   if (updateInfo.required) {
     logInfo("Required update detected - installing immediately");
@@ -348,7 +353,7 @@ async function checkForUpdateAndInstall(forceCheck = false) {
     if (UPDATE_CONFIG.SHOW_UPDATE_NOTIFICATION) {
       logInfo(`Optional update available: ${updateInfo.changelog || "No changelog"}`);
     }
-    
+
     // For now, install optional updates automatically
     // In the future, you could add a user prompt here
     logInfo("Installing optional update...");
@@ -372,7 +377,7 @@ export async function manualUpdateCheck() {
  */
 export async function manualUpdateInstall(updateInfo = null) {
   logInfo("Manual update install requested");
-  
+
   if (!updateInfo) {
     updateInfo = await checkForUpdate();
     if (!updateInfo) {
@@ -380,7 +385,7 @@ export async function manualUpdateInstall(updateInfo = null) {
       return false;
     }
   }
-  
+
   return await downloadAndInstallUpdate(updateInfo);
 }
 
@@ -391,7 +396,7 @@ export async function manualUpdateInstall(updateInfo = null) {
 export async function getUpdateStatus() {
   const current = await getCurrentVersion();
   const updateInfo = await fetchVersionInfo();
-  
+
   return {
     currentVersion: current,
     remoteVersion: updateInfo?.version || null,
@@ -400,4 +405,3 @@ export async function getUpdateStatus() {
     updateInfo: updateInfo || null,
   };
 }
-

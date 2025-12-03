@@ -26,6 +26,11 @@ const updateState = (qr, event, data) => {
     clientState.status = "authenticated";
     clientState.qr = null;
     clientState.message = "Authenticated successfully";
+  } else if (event === "loading") {
+    // Status when "טוען" (loading) text is detected on the page
+    clientState.status = "loading";
+    clientState.qr = null;
+    clientState.message = "טוען צ'אטים...";
   } else if (event === "ready") {
     clientState.status = "ready";
     clientState.qr = null;

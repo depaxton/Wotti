@@ -3,14 +3,25 @@
 import { renderContacts, initializeContactsSearch } from "./components/contacts/ContactsSidebar.js";
 import { initSideMenu } from "./components/menu/SideMenu.js";
 import { createQRCodeDisplay } from "./components/qr/QRCodeDisplay.js";
-import { createLoadingScreen, showLoadingScreen, hideLoadingScreen } from "./components/loading/LoadingScreen.js";
+import { createLoadingScreen, showLoadingScreen, hideLoadingScreen, completeAndHideLoadingScreen } from "./components/loading/LoadingScreen.js";
 import { startQRCodePolling, stopQRCodePolling } from "./services/qrService.js";
 import { setContacts } from "./services/contactService.js";
 import { initHebrewFontDetection } from "./utils/domUtils.js";
 import { createUserSettings } from "./components/user/UserSettings.js";
+import { initAnalytics, trackAppStarted, trackContactSelected, trackContactsRefreshed, trackQRCodeScanned, setUserInfo } from "./utils/analytics.js";
+import { fetchWithETagSmart } from "./utils/etagCache.js";
 
 // Initialize the app
 document.addEventListener("DOMContentLoaded", () => {
+  // Initialize Google Analytics
+  initAnalytics();
+  
+  // Load app version for analytics tracking
+  loadAppVersionForAnalytics();
+  
+  // Track app started
+  trackAppStarted();
+  
   renderContacts(); // Render empty/fake contacts initially
   initializeContactsSearch(); // Initialize search functionality
   initSideMenu();
@@ -28,21 +39,69 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load contacts from JSON immediately on page load (before login)
   loadContactsFromJSON();
 
-  // Listen for contact selection to show reminder interface
-  document.addEventListener("contactSelected", (e) => {
+  // Listen for contact selection to show chat interface
+  document.addEventListener("contactSelected", async (e) => {
     const contact = e.detail.contact;
     const chatArea = document.querySelector(".chat-area");
 
     if (chatArea) {
-      // Clear current content (placeholder, chat, or previous reminder)
-      chatArea.innerHTML = "";
-
-      // Render reminder interface
-      const userSettings = createUserSettings(contact);
-      chatArea.appendChild(userSettings);
+      // Track contact selection in Analytics
+      trackContactSelected(contact.id || contact.name, contact.name || "Unknown");
+      
+      // Import and create chat area
+      const { createChatArea } = await import("./components/chat/ChatArea.js");
+      createChatArea(contact);
     }
   });
 });
+
+/**
+ * Loads app version from API and stores it globally for analytics
+ * טוען את גרסת האפליקציה מה-API ושומר אותה באופן גלובלי למעקב Analytics
+ */
+async function loadAppVersionForAnalytics() {
+  try {
+    const API_URL = window.location.hostname === "localhost" 
+      ? "http://localhost:5000" 
+      : `${window.location.protocol}//${window.location.hostname}:5000`;
+    
+    const response = await fetch(`${API_URL}/api/version`);
+    if (response.ok) {
+      const data = await response.json();
+      window.appVersion = data.version || "unknown";
+    }
+  } catch (error) {
+    console.warn("Could not load version for analytics:", error);
+    window.appVersion = "unknown";
+  }
+}
+
+/**
+ * Loads user info from API and sets it in Analytics
+ * טוען את פרטי המשתמש מה-API ומגדיר אותם ב-Analytics
+ */
+async function loadAndSetUserInfoForAnalytics() {
+  try {
+    const API_URL = window.location.hostname === "localhost" 
+      ? "http://localhost:5000" 
+      : `${window.location.protocol}//${window.location.hostname}:5000`;
+    
+    const response = await fetch(`${API_URL}/api/user/info`);
+    if (response.ok) {
+      const userInfo = await response.json();
+      if (userInfo.userId && userInfo.phoneNumber) {
+        setUserInfo(userInfo.userId, userInfo.phoneNumber, userInfo.pushname || null);
+        console.log("User info set in Analytics:", {
+          userId: userInfo.userId,
+          phone: userInfo.phoneNumber,
+          name: userInfo.pushname
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("Could not load user info for analytics:", error);
+  }
+}
 
 /**
  * Initializes QR code display in the chat area
@@ -88,8 +147,15 @@ function initQRCodeDisplay() {
   
   const checkStatus = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/status`);
-      const data = await response.json();
+      // השתמש ב-ETag כדי לחסוך עיבוד אם הנתונים לא השתנו
+      const result = await fetchWithETagSmart(`${API_URL}/api/status`);
+      
+      // אם הנתונים לא השתנו (304), אין צורך לעדכן את ה-UI
+      if (!result.changed) {
+        return;
+      }
+      
+      const data = result.data;
 
       const qrContainer = document.getElementById("qrCodeContainer");
       const loadingContainer = document.getElementById("loadingScreenContainer");
@@ -109,6 +175,17 @@ function initQRCodeDisplay() {
         const statusChangedToReady = lastLoadedStatus !== "ready" && lastLoadedStatus !== "authenticated";
         const shouldLoadContacts = (statusChangedToReady || !contactsLoaded) && !isLoadingContacts;
         
+        // Track QR code scan when status changes to authenticated
+        if (statusChangedToReady && (lastLoadedStatus === null || lastLoadedStatus !== "ready" && lastLoadedStatus !== "authenticated")) {
+          trackQRCodeScanned();
+        }
+        
+        // Load user info and set it in Analytics if authenticated (first time or after reconnection)
+        if ((data.status === "ready" || data.status === "authenticated") && !window.userInfoLoaded) {
+          loadAndSetUserInfoForAnalytics();
+          window.userInfoLoaded = true;
+        }
+        
         if (shouldLoadContacts && window.loadContacts) {
           isLoadingContacts = true;
           window.loadContacts().then(() => {
@@ -116,7 +193,7 @@ function initQRCodeDisplay() {
             // After contacts are loaded, show placeholder
             setTimeout(() => {
               if (loadingContainer) {
-                hideLoadingScreen();
+                completeAndHideLoadingScreen();
               }
               if (!hasShownPlaceholder) {
                 chatPlaceholder.innerHTML = originalContent;
@@ -161,6 +238,7 @@ function initQRCodeDisplay() {
         if (lastLoadedStatus === "ready" || lastLoadedStatus === "authenticated") {
           contactsLoaded = false;
           hasShownPlaceholder = false;
+          window.userInfoLoaded = false; // Reset user info flag on disconnect
         }
         lastLoadedStatus = data.status;
         if (loadingContainer) {
@@ -201,9 +279,6 @@ function initQRCodeDisplay() {
   // Check status immediately to determine if QR is needed
   checkStatus();
   
-  // Check status immediately to determine initial display (QR or loading screen)
-  checkStatus();
-  
   // Check status every 3 seconds (for QR code and connection status only)
   const statusInterval = setInterval(() => {
     checkStatus().then(() => {
@@ -218,13 +293,17 @@ function initQRCodeDisplay() {
     try {
       // Only check if client is ready and contacts are already loaded
       if (contactsLoaded && window.loadContacts) {
-        const response = await fetch(`${API_URL}/api/messages/new`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.hasNewMessage) {
-            console.log("New message detected, reloading chats...");
-            await window.loadContacts();
-          }
+        // השתמש ב-ETag כדי לחסוך עיבוד אם אין הודעות חדשות
+        const result = await fetchWithETagSmart(`${API_URL}/api/messages/new`);
+        
+        // אם הנתונים לא השתנו (304), אין הודעות חדשות
+        if (!result.changed) {
+          return;
+        }
+        
+        if (result.data && result.data.hasNewMessage) {
+          console.log("New message detected, reloading chats...");
+          await window.loadContacts();
         }
       }
     } catch (error) {
@@ -346,7 +425,11 @@ function initContactsLoader() {
       }
 
       try {
-        await loadContacts();
+        const contactsCount = await loadContacts();
+        // Track contacts refresh in Analytics
+        if (contactsCount !== undefined) {
+          trackContactsRefreshed(contactsCount);
+        }
       } catch (error) {
         console.error("Failed to load contacts:", error);
         // Keep button enabled even on error so user can retry

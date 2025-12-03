@@ -81,13 +81,136 @@ export function createUserSettings(contact) {
   const header = document.createElement("div");
   header.className = "user-header";
   header.innerHTML = `
-    <div class="user-info">
-      <h2>${contact.name}</h2>
-      <p>${formatIsraeliMobile(contact.phone)}</p>
+    <div class="user-info" style="flex: 1;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <h2 id="userNameDisplay" style="margin: 0; flex: 1;">${contact.name}</h2>
+        <button id="editNameBtn" type="button" style="background: transparent; border: none; cursor: pointer; padding: 5px; color: #128C7E; display: flex; align-items: center;" title="ערוך שם">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="nameEditContainer" style="display: none; gap: 8px; align-items: center;">
+        <input type="text" id="userNameInput" class="form-input" value="${contact.name}" style="flex: 1; margin: 0;">
+        <button id="saveNameBtn" type="button" class="btn btn-primary" style="padding: 8px 16px; margin: 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <button id="cancelNameBtn" type="button" class="btn btn-secondary" style="padding: 8px 16px; margin: 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <p style="margin: 5px 0 0;">${formatIsraeliMobile(contact.phone)}</p>
     </div>
-    
   `;
   container.appendChild(header);
+
+  // Name editing functionality
+  const userNameDisplay = header.querySelector("#userNameDisplay");
+  const editNameBtn = header.querySelector("#editNameBtn");
+  const nameEditContainer = header.querySelector("#nameEditContainer");
+  const userNameInput = header.querySelector("#userNameInput");
+  const saveNameBtn = header.querySelector("#saveNameBtn");
+  const cancelNameBtn = header.querySelector("#cancelNameBtn");
+
+  editNameBtn.addEventListener("click", () => {
+    userNameDisplay.style.display = "none";
+    editNameBtn.style.display = "none";
+    nameEditContainer.style.display = "flex";
+    userNameInput.focus();
+    userNameInput.select();
+  });
+
+  cancelNameBtn.addEventListener("click", () => {
+    userNameInput.value = contact.name; // Reset to original
+    nameEditContainer.style.display = "none";
+    userNameDisplay.style.display = "block";
+    editNameBtn.style.display = "flex";
+  });
+
+  saveNameBtn.addEventListener("click", async () => {
+    const newName = userNameInput.value.trim();
+    if (!newName) {
+      toast.error("השם לא יכול להיות ריק");
+      return;
+    }
+
+    if (newName === contact.name) {
+      // No change, just cancel
+      cancelNameBtn.click();
+      return;
+    }
+
+    // Disable button during save
+    saveNameBtn.disabled = true;
+    const originalHTML = saveNameBtn.innerHTML;
+    saveNameBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 6v6l4 2"></path>
+      </svg>
+    `;
+
+    try {
+      const encodedPhone = encodeURIComponent(contact.phone);
+      const response = await fetch(`${API_URL}/api/users/${encodedPhone}/name`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ name: newName }),
+        credentials: "omit",
+        cache: "no-cache",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const updatedUser = await response.json();
+      
+      // Update contact object
+      contact.name = updatedUser.name;
+      
+      // Update display
+      userNameDisplay.textContent = updatedUser.name;
+      nameEditContainer.style.display = "none";
+      userNameDisplay.style.display = "block";
+      editNameBtn.style.display = "flex";
+
+      // Dispatch event to notify other components
+      window.dispatchEvent(
+        new CustomEvent("userNameUpdated", {
+          detail: { phone: contact.phone, name: updatedUser.name },
+        })
+      );
+
+      toast.success("השם עודכן בהצלחה");
+    } catch (error) {
+      console.error("Failed to update user name", error);
+      const errorMessage = error.message || "שגיאה לא ידועה";
+      toast.error(`שגיאה בעדכון השם: ${errorMessage}`);
+      saveNameBtn.innerHTML = originalHTML;
+    } finally {
+      saveNameBtn.disabled = false;
+    }
+  });
+
+  // Allow Enter key to save
+  userNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      saveNameBtn.click();
+    } else if (e.key === "Escape") {
+      cancelNameBtn.click();
+    }
+  });
 
   // Add Reminder Section
   const addReminderSection = document.createElement("div");

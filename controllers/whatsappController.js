@@ -6,6 +6,7 @@ import { getClientState } from "../services/stateService.js";
 import { getClient, isClientReady, getCurrentQRCode, getUserInfo, logout, initializeClient, checkAndResetNewMessage } from "../services/whatsappClient.js";
 import { logError, logInfo } from "../utils/logger.js";
 import { loadUsers, saveUsers, getAllUsers } from "../services/userService.js";
+import { handleETag } from "../utils/etagHelper.js";
 
 /**
  * GET /api/qr
@@ -15,6 +16,7 @@ export const getQr = async (req, res) => {
   const qr = getCurrentQRCode();
   const state = getClientState();
 
+  let responseData;
   if (qr) {
     try {
       // Generate QR code as data URL image
@@ -27,27 +29,34 @@ export const getQr = async (req, res) => {
         },
       });
 
-      res.json({
+      responseData = {
         status: "qr",
         qr: qr,
         qrImage: qrImageDataUrl,
-      });
+      };
     } catch (error) {
       logError("Error generating QR code image", error);
-      res.json({
+      responseData = {
         status: "qr",
         qr: qr,
         qrImage: null,
-      });
+      };
     }
   } else {
-    res.json({
+    responseData = {
       status: state.status,
       qr: null,
       qrImage: null,
       message: state.message,
-    });
+    };
   }
+
+  // בדוק ETag - אם הנתונים לא השתנו, החזר 304
+  if (handleETag(req, res, responseData)) {
+    return; // 304 כבר נשלח
+  }
+
+  res.json(responseData);
 };
 
 /**
@@ -58,16 +67,30 @@ export const getStatus = async (req, res) => {
   try {
     const ready = await isClientReady();
     const state = getClientState();
-    res.json({
+    const responseData = {
       status: ready ? "ready" : state.status,
       ready: ready,
-    });
+    };
+
+    // בדוק ETag - אם הנתונים לא השתנו, החזר 304
+    if (handleETag(req, res, responseData)) {
+      return; // 304 כבר נשלח
+    }
+
+    res.json(responseData);
   } catch (error) {
-    res.json({
+    const responseData = {
       status: "error",
       ready: false,
       message: error.message,
-    });
+    };
+
+    // בדוק ETag גם במקרה של שגיאה
+    if (handleETag(req, res, responseData)) {
+      return;
+    }
+
+    res.json(responseData);
   }
 };
 
@@ -283,7 +306,16 @@ export const getUserInfoController = async (req, res) => {
 export const checkNewMessage = async (req, res) => {
   try {
     const hasNew = checkAndResetNewMessage();
-    res.json({ hasNewMessage: hasNew });
+    const responseData = { hasNewMessage: hasNew };
+
+    // בדוק ETag - אם הנתונים לא השתנו, החזר 304
+    // הערה: זה endpoint מיוחד - אם hasNew הוא false, זה אומר שאין הודעות חדשות
+    // אבל אנחנו עדיין רוצים לבדוק ETag כדי לחסוך עיבוד
+    if (handleETag(req, res, responseData)) {
+      return; // 304 כבר נשלח
+    }
+
+    res.json(responseData);
   } catch (error) {
     logError("Error checking for new messages", error);
     res.status(500).json({ error: error.message });

@@ -81,6 +81,60 @@ export function initSideMenu() {
     });
   }
 
+
+  // Restart Menu Item
+  const restartMenuItem = document.getElementById("restartMenuItem");
+  if (restartMenuItem) {
+    restartMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      
+      // Confirm restart
+      const confirmed = confirm("האם אתה בטוח שברצונך להפעיל מחדש את התוכנה?");
+      if (!confirmed) {
+        return;
+      }
+
+      // Add restarting state
+      restartMenuItem.classList.add("restarting");
+      restartMenuItem.disabled = true;
+
+      try {
+        // Get API URL
+        const API_URL = window.location.hostname === "localhost" 
+          ? "http://localhost:5000" 
+          : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+        // Call restart API
+        const response = await fetch(`${API_URL}/api/restart`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          // Show message to user
+          alert("התוכנה מופעלת מחדש. הדף יטען מחדש בעוד כמה שניות...");
+          
+          // Wait a bit and then reload the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          const error = await response.json();
+          alert(`שגיאה בהפעלה מחדש: ${error.error || "שגיאה לא ידועה"}`);
+          restartMenuItem.classList.remove("restarting");
+          restartMenuItem.disabled = false;
+        }
+      } catch (error) {
+        console.error("Error restarting application:", error);
+        alert(`שגיאה בהפעלה מחדש: ${error.message}`);
+        restartMenuItem.classList.remove("restarting");
+        restartMenuItem.disabled = false;
+      }
+    });
+  }
+
   // Close menu when clicking outside (optional)
   document.addEventListener("click", (e) => {
     if (!sideMenu.contains(e.target) && sideMenu.classList.contains("expanded")) {

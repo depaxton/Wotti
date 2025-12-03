@@ -27,6 +27,14 @@
     <link rel="stylesheet" href="components/meeting/meeting.css" />
     <!-- QR Code Library - Using a working CDN -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-X4YZBCNV9S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-X4YZBCNV9S');
+    </script>
   </head>
   <body>
     <div class="app-container">
@@ -112,6 +120,14 @@
           <span class="version-label">גרסה</span>
           <span class="version-number" id="versionNumber">טוען...</span>
         </div>
+        <button id="restartMenuItem" class="restart-menu-button" type="button" title="הפעלה מחדש">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span class="menu-label">הפעלה מחדש</span>
+        </button>
       </div>
     </div>
 

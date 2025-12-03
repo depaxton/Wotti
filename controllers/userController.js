@@ -1,4 +1,4 @@
-import { getAllUsers } from '../services/userService.js';
+import { getAllUsers, updateUser } from '../services/userService.js';
 import { getRemindersForUser, updateRemindersForUser, getAllReminders, updateReminderStatus } from '../services/reminderService.js';
 
 /**
@@ -232,6 +232,32 @@ export async function sendReminderManually(req, res) {
   } catch (error) {
     logError('Error sending reminder manually', error);
     res.status(500).json({ error: error.message || 'Failed to send reminder' });
+  }
+}
+
+/**
+ * PUT /api/users/:phone/name
+ * Updates the name of a user
+ */
+export async function updateUserName(req, res) {
+  try {
+    const { phone } = req.params;
+    const { name } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Name is required and must be a non-empty string' });
+    }
+
+    const decodedPhone = decodeURIComponent(phone);
+    const updatedUser = await updateUser(decodedPhone, { name: name.trim() });
+    
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error updating user name:', error);
+    if (error.message === 'User not found') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(500).json({ error: 'Failed to update user name' });
   }
 }
 

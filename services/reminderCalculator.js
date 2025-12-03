@@ -183,9 +183,16 @@ export function findClosestPreReminder(reminder, scheduledTimes) {
         continue;
       }
       
-      // Only consider pre-reminders that are before or equal to current time
-      // and before main time (we want the one closest to main time that we can still send)
-      if (scheduledFor <= now && scheduledFor < mainTime) {
+      // Consider pre-reminders that:
+      // 1. Are in the past (missed reminders we can catch up on)
+      // 2. OR are within the next 30 seconds (normal case)
+      // 3. AND are before main time
+      const windowMs = 30 * 1000; // 30 seconds
+      const scheduledMs = scheduledFor.getTime();
+      const nowMs = now.getTime();
+      const isInWindow = scheduledMs <= nowMs + windowMs;
+      
+      if (isInWindow && scheduledFor < mainTime) {
         // Find the one closest to main time (latest scheduled time)
         if (!closestTime || scheduledFor > closestTime) {
           closestTime = scheduledFor;

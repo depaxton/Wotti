@@ -2,6 +2,7 @@
 // Handles QR code fetching and display state management
 
 import { updateQRCode, updateQRCodeFromImage, showQRCodeLoading, showQRCodeAuthenticated, showQRCodeError } from "../components/qr/QRCodeDisplay.js";
+import { fetchWithETagSmart } from "../utils/etagCache.js";
 
 let pollingInterval = null;
 let isPolling = false;
@@ -51,13 +52,19 @@ export function stopQRCodePolling() {
  */
 async function fetchQRCode(apiUrl) {
   try {
-    const response = await fetch(`${apiUrl}/api/qr`);
+    // השתמש ב-ETag כדי לחסוך עיבוד אם ה-QR code לא השתנה
+    const result = await fetchWithETagSmart(`${apiUrl}/api/qr`);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // אם הנתונים לא השתנו (304), אין צורך לעדכן את ה-UI
+    if (!result.changed) {
+      return;
     }
 
-    const data = await response.json();
+    if (!result.data) {
+      throw new Error(`HTTP error! status: ${result.status}`);
+    }
+
+    const data = result.data;
 
     if (data.qr) {
       // New QR code received

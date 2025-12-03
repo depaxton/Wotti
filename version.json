@@ -1,8 +1,8 @@
 {
-  "version": "1.0.4",
-  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.4/wotti-1.0.4.zip",
+  "version": "1.0.5",
+  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.5/wotti-1.0.5.zip",
   "releaseDate": "2025-11-24",
-  "changelog": "גרסה 1.0.4 - תיקוני באגים ושיפורים:\n• שיפור זיהוי מצב טעינה - חיפוש מדויק של הטקסט 'הצ'אטים בטעינה' בכל האלמנטים בדף\n• הפעלה אוטומטית מחדש של השרת לאחר עדכון גרסה - השינויים נטענים מיד\n• שיפורי יציבות וניקוי קוד",
+  "changelog": "גרסה 1.0.5 - תיקוני באגים ושיפורים",
   "required": false,
   "minVersion": null
 }

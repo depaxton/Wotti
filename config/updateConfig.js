@@ -3,11 +3,11 @@
 
 export const UPDATE_CONFIG = {
   // URL לקובץ version.json על השרת
-  // ⚠️ חשוב: עדכן את זה לכתובת האמיתית של version.json שלך!
+  // ⚠️ ודא שה-repository הוא PUBLIC כדי שה-URL הזה יעבוד!
   UPDATE_CHECK_URL: process.env.UPDATE_CHECK_URL || "https://raw.githubusercontent.com/depaxton/Wotti/main/version.json",
 
   // תדירות בדיקה לעדכונים (בדקות)
-  UPDATE_CHECK_INTERVAL: parseInt(process.env.UPDATE_CHECK_INTERVAL) || 10,
+  UPDATE_CHECK_INTERVAL: parseInt(process.env.UPDATE_CHECK_INTERVAL) || 3,
 
   // האם עדכונים אוטומטיים מופעלים
   AUTO_UPDATE_ENABLED: process.env.AUTO_UPDATE_ENABLED !== "false",

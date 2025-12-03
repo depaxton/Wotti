@@ -10,6 +10,7 @@ import { initializeSystemTray, destroySystemTray } from "./services/systemTray.j
 import { logInfo, logError, logWarn } from "./utils/logger.js";
 import { cleanupAllProcesses } from "./utils/processCleanup.js";
 import { startUpdateChecker, stopUpdateChecker } from "./services/updateService.js";
+import { setServerInstance } from "./services/restartService.js";
 
 // הגדר שם תהליך (יופיע ב-Task Manager)
 if (process.env.PROCESS_NAME) {
@@ -43,6 +44,9 @@ async function main() {
       logInfo(`Frontend available at http://localhost:${PORT}`);
       logInfo(`QR code API available at http://localhost:${PORT}/api/qr`);
     });
+
+    // Store server instance for restart service
+    setServerInstance(server);
 
     // Handle graceful shutdown
     const shutdown = async () => {

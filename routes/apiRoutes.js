@@ -5,7 +5,9 @@ import express from "express";
 import { getQr, getStatus, getContacts, getContactsFromJSON, getUserInfoController, logoutController, checkNewMessage } from "../controllers/whatsappController.js";
 import { getSettings, updateSettings, getReminderTemplate, updateReminderTemplate } from "../controllers/settingsController.js";
 import { getUserReminders, saveUserReminders, getAllUsersController, sendReminderManually, getAllRemindersController, updateUserName } from "../controllers/userController.js";
+import { getMessages, sendMessage, getMessageMedia, deleteMessage, getChatStatus, searchMessages } from "../controllers/chatController.js";
 import { manualUpdateCheck, manualUpdateInstall, getUpdateStatus } from "../services/updateService.js";
+import { restartApplication } from "../services/restartService.js";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -24,6 +26,14 @@ router.get("/contacts/json", getContactsFromJSON);
 router.get("/user/info", getUserInfoController);
 router.get("/messages/new", checkNewMessage);
 router.post("/logout", logoutController);
+
+// Chat API endpoints
+router.get("/chat/:chatId/messages", getMessages);
+router.post("/chat/send", sendMessage);
+router.get("/chat/:messageId/media", getMessageMedia);
+router.delete("/chat/:messageId", deleteMessage);
+router.get("/chat/:chatId/status", getChatStatus);
+router.get("/chat/:chatId/search", searchMessages);
 
 // Settings API endpoints
 router.get("/settings", getSettings);
@@ -90,6 +100,29 @@ router.post("/update/install", async (req, res) => {
       message: "Update installation started",
       updateInfo 
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Restart API endpoint
+router.post("/restart", async (req, res) => {
+  try {
+    // Send response immediately before restart
+    res.json({ 
+      message: "Restart initiated",
+      status: "restarting"
+    });
+
+    // Start restart in background (don't wait for completion)
+    // Small delay to ensure response is sent
+    setTimeout(async () => {
+      try {
+        await restartApplication();
+      } catch (error) {
+        console.error("Restart failed:", error);
+      }
+    }, 500);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

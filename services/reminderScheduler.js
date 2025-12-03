@@ -101,23 +101,6 @@ async function sendReminderMessage(reminder, phoneNumber, userName, reminderType
       date: dateStr
     });
 
-    // Add prefix for pre-reminders
-    if (reminderType !== 'main') {
-      let prefix = '';
-      switch (reminderType) {
-        case '1d':
-          prefix = '⏰ תזכורת מקדימה: יום לפני הפגישה\n\n';
-          break;
-        case '1h':
-          prefix = '⏰ תזכורת מקדימה: שעה לפני הפגישה\n\n';
-          break;
-        case '30m':
-          prefix = '⏰ תזכורת מקדימה: 30 דקות לפני הפגישה\n\n';
-          break;
-      }
-      messageText = prefix + messageText;
-    }
-
     // Format phone number for WhatsApp
     const chatId = formatWhatsAppPhone(phoneNumber);
 
@@ -354,11 +337,11 @@ async function schedulerLoop() {
             );
           } else {
             // No closest pre-reminder found (all sent or none in range)
-            // Check for normal pre-reminders within window (for real-time sending)
+            // Check for normal pre-reminders using shouldSendReminder (handles both past and future)
             for (const preReminder of reminder.preReminder) {
               const scheduledFor = scheduledTimes.preReminders[preReminder];
               
-              if (scheduledFor && isWithinNext(scheduledFor, 30)) {
+              if (scheduledFor && shouldSendReminder(reminder, scheduledFor, preReminder)) {
                 sendPromises.push(
                   processReminder(reminder, phoneNumber, userName, preReminder, scheduledFor)
                 );
@@ -368,7 +351,7 @@ async function schedulerLoop() {
         }
         
         // Check and send main reminder
-        if (scheduledTimes.main && isWithinNext(scheduledTimes.main, 30)) {
+        if (scheduledTimes.main && shouldSendReminder(reminder, scheduledTimes.main, 'main')) {
           sendPromises.push(
             processReminder(reminder, phoneNumber, userName, 'main', scheduledTimes.main)
           );

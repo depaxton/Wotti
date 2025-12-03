@@ -7,12 +7,18 @@ import qrcode from "qrcode-terminal";
 import { logInfo, logError, logWarn } from "../utils/logger.js";
 import fs from "fs/promises";
 import path from "path";
+import { exec } from "child_process";
+import { fileURLToPath } from "url";
 
 let client = null;
 let currentQRCode = null;
 let qrCodeCallbacks = [];
 let isReinitializing = false;
 let hasNewMessage = false; // Flag to track if a new message was received
+let loadingCheckInterval = null; // משתנה גלובלי לניהול הלופ
+let sleepWakeCheckInterval = null; // בדיקה תקופתית לזיהוי התעוררות ממצב שינה
+let isRestarting = false; // flag למניעת קריאות מרובות ל-restart
+let lastCheckTime = Date.now(); // זמן הבדיקה האחרונה - לזיהוי קפיצות זמן (שינה/התעוררות)
 
 /**
  * Clears the authentication session files
@@ -97,7 +103,7 @@ export async function initializeClient(forceReinit = false) {
         dataPath: ".wwebjs_auth",
       }),
       puppeteer: {
-        headless: false, // Set to false to see browser (for debugging)
+        headless: true, // Set to false to see browser (for debugging)
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -132,156 +138,111 @@ export async function initializeClient(forceReinit = false) {
 }
 
 /**
- * Starts monitoring the WhatsApp page for "טוען" (loading) text
+ * Starts monitoring the WhatsApp page for "בטעינה" (loading) text
  * Updates status to "loading" when detected
  * @param {Client} clientInstance - WhatsApp client instance
  */
 async function startLoadingDetection(clientInstance) {
+  // עצור לופ קודם אם קיים
+  if (loadingCheckInterval) {
+    clearInterval(loadingCheckInterval);
+    loadingCheckInterval = null;
+  }
+
   try {
-    // Wait a bit for the page to be ready after authentication
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Get the Puppeteer page from the client
-    // Try different ways to access the page with retries
+    // המתן קצת שהדף יהיה מוכן
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // קבל את דף Puppeteer מה-client
     let page = null;
     let attempts = 0;
-    const maxAttempts = 5;
-    
+    const maxAttempts = 10;
+
     while (!page && attempts < maxAttempts) {
       try {
         if (clientInstance.pupPage) {
           page = clientInstance.pupPage;
         } else if (clientInstance.pupBrowser) {
           const pages = await clientInstance.pupBrowser.pages();
-          page = pages[0]; // Get the first page
+          page = pages[0];
         } else if (clientInstance._pupPage) {
           page = clientInstance._pupPage;
         }
-        
+
         if (page && !page.isClosed()) {
-          break; // Found a valid page
+          break;
         } else {
-          page = null; // Reset if page is closed
+          page = null;
         }
       } catch (error) {
-        // Continue trying
+        // המשך לנסות
       }
-      
+
       if (!page) {
         attempts++;
         if (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
     }
-    
+
     if (!page) {
       logWarn("Could not access Puppeteer page for loading detection after multiple attempts");
       return;
     }
 
-    // Function to check for "טוען" text on the page
-    const checkForLoadingText = async () => {
+    // לופ כל שנייה לבדיקת טקסט "בטעינה"
+    loadingCheckInterval = setInterval(async () => {
       try {
-        // Check if page is still available
+        // בדוק אם הדף עדיין זמין
         if (page.isClosed()) {
+          clearInterval(loadingCheckInterval);
+          loadingCheckInterval = null;
           return;
         }
 
-        // Get page content and check for loading text using solution 3 - search all elements
-        const pageContent = await page.evaluate(() => {
-          // Solution 3: Search through all elements in the page
-          const allElements = document.querySelectorAll('*');
-          const searchTexts = [
-            'הצ\'אטים בטעינה',
-            'הצ'אטים בטעינה',
-            'בטעינה',
-            'הצ\'אטים',
-            'טעינה',
-            'טעינת',
-            'Loading',
-            'Loading chats'
-          ];
-          
+        // בדוק אם הטקסט "בטעינה" קיים בדף
+        const hasLoadingText = await page.evaluate(() => {
+          // חיפוש בכל האלמנטים בדף
+          const allElements = document.querySelectorAll("*");
+
           for (const element of allElements) {
-            const text = element.innerText || element.textContent || '';
-            if (searchTexts.some(searchText => text.includes(searchText))) {
+            const text = element.innerText || element.textContent || "";
+            if (text.includes("בטעינה")) {
               return true;
             }
           }
-          
+
           return false;
         });
 
-        if (pageContent) {
-          logInfo("Detected 'טעינה' (loading) text on WhatsApp page");
-          // Update status to loading
+        if (hasLoadingText) {
+          logInfo("Detected 'בטעינה' (loading) text on WhatsApp page");
+          // עדכן סטטוס ל-loading
           qrCodeCallbacks.forEach((callback) => callback(null, "loading"));
-          
-          // Stop checking once we've detected loading
-          return;
+          // עצור את הלופ - מצאנו את הטקסט
+          clearInterval(loadingCheckInterval);
+          loadingCheckInterval = null;
         }
-
-        // Continue checking every 500ms for up to 10 seconds
-        // (in case the text appears later)
-        let attempts = 0;
-        const maxAttempts = 20; // 20 * 500ms = 10 seconds
-        
-        const interval = setInterval(async () => {
-          try {
-            if (page.isClosed()) {
-              clearInterval(interval);
-              return;
-            }
-
-            attempts++;
-            
-            const hasLoadingText = await page.evaluate(() => {
-              // Solution 3: Search through all elements in the page
-              const allElements = document.querySelectorAll('*');
-              const searchTexts = [
-                'הצ\'אטים בטעינה',
-                'הצ'אטים בטעינה',
-                'בטעינה',
-                'הצ\'אטים',
-                'טעינה',
-                'טעינת',
-                'Loading',
-                'Loading chats'
-              ];
-              
-              for (const element of allElements) {
-                const text = element.innerText || element.textContent || '';
-                if (searchTexts.some(searchText => text.includes(searchText))) {
-                  return true;
-                }
-              }
-              
-              return false;
-            });
-
-            if (hasLoadingText) {
-              logInfo("Detected 'טעינה' (loading) text on WhatsApp page");
-              qrCodeCallbacks.forEach((callback) => callback(null, "loading"));
-              clearInterval(interval);
-            } else if (attempts >= maxAttempts) {
-              // Stop checking after max attempts
-              clearInterval(interval);
-            }
-          } catch (error) {
-            // Page might be closed or navigated away
-            clearInterval(interval);
-          }
-        }, 500);
       } catch (error) {
+        // הדף אולי נסגר או נווט למקום אחר
         logWarn("Error checking for loading text:", error.message);
+        clearInterval(loadingCheckInterval);
+        loadingCheckInterval = null;
       }
-    };
-
-    // Start checking
-    checkForLoadingText();
+    }, 1000); // כל שנייה (1000ms)
   } catch (error) {
     logWarn("Could not start loading detection:", error.message);
+  }
+}
+
+/**
+ * Stops the loading detection loop
+ */
+function stopLoadingDetection() {
+  if (loadingCheckInterval) {
+    clearInterval(loadingCheckInterval);
+    loadingCheckInterval = null;
   }
 }
 
@@ -300,6 +261,9 @@ function registerEventListeners(clientInstance) {
 
     // Notify all callbacks
     qrCodeCallbacks.forEach((callback) => callback(qr));
+
+    // התחל לבדוק מיד אחרי QR code
+    startLoadingDetection(clientInstance);
   });
 
   // Authentication event
@@ -307,9 +271,8 @@ function registerEventListeners(clientInstance) {
     logInfo("Client authenticated successfully");
     currentQRCode = null; // Clear QR code after authentication
     qrCodeCallbacks.forEach((callback) => callback(null, "authenticated"));
-    
-    // Start monitoring for "טוען" (loading) text on the page
-    startLoadingDetection(clientInstance);
+
+    // הלופ כבר רץ מ-QR, לא צריך להתחיל שוב
   });
 
   // Ready event
@@ -317,6 +280,12 @@ function registerEventListeners(clientInstance) {
     logInfo("WhatsApp client is ready!");
     currentQRCode = null; // Clear QR code when ready
     qrCodeCallbacks.forEach((callback) => callback(null, "ready"));
+
+    // עצור את הלופ כשהוא מוכן
+    stopLoadingDetection();
+
+    // התחל בדיקה תקופתית לזיהוי שינה/התעוררות
+    startSleepWakeCheck();
   });
 
   // Authentication failure event
@@ -467,8 +436,145 @@ export async function isClientReady() {
     const state = await client.getState();
     return state === "CONNECTED";
   } catch (error) {
+    // לא עושים כלום כאן - רק הבדיקה התקופתית תטפל ב-Target closed
     logError("Error checking client state", error);
     return false;
+  }
+}
+
+/**
+ * Checks if the computer was asleep (by detecting time jump)
+ * @returns {boolean} True if time jump detected (computer was asleep), false otherwise
+ */
+function detectWakeFromSleep() {
+  const currentTime = Date.now();
+  const timeSinceLastCheck = currentTime - lastCheckTime;
+
+  // אם עבר יותר מ-6 שניות מאז הבדיקה האחרונה,
+  // זה אומר שהמחשב היה בשינה והתעורר
+  // (בדיקה רגילה היא כל 10 שניות, אבל אם עברו רק 6+ זה כבר יכול להיות שינה)
+  const sleepThreshold = 20000; // 6 שניות
+
+  // שינוי: >= במקום > כדי לזהות גם 6 שניות בדיוק
+  if (timeSinceLastCheck >= sleepThreshold) {
+    logInfo(`Time jump detected: ${Math.round(timeSinceLastCheck / 1000)} seconds since last check. Computer likely woke from sleep.`);
+    // עדכן את lastCheckTime גם כשמזהה שינה, כדי למנוע זיהוי כפול
+    lastCheckTime = currentTime;
+    return true;
+  }
+
+  lastCheckTime = currentTime;
+  return false;
+}
+
+/**
+ * Runs the VBS script to restart the application after sleep/wake
+ * The VBS script will kill all processes (Node.js, Chrome/Puppeteer) and restart npm start
+ */
+async function runRestartVBS() {
+  return new Promise((resolve, reject) => {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const projectRoot = path.resolve(__dirname, "..");
+      const vbsPath = path.join(projectRoot, "restart-after-wake.vbs");
+
+      logInfo(`Running VBS restart script: ${vbsPath}`);
+
+      // Run VBS script using cscript (Windows Script Host)
+      // /nologo - don't show logo
+      // /b - batch mode (no user interaction)
+      exec(`cscript //nologo //b "${vbsPath}"`, (error, stdout, stderr) => {
+        if (error) {
+          logError("Error running VBS restart script", error);
+          reject(error);
+          return;
+        }
+
+        if (stdout) {
+          logInfo(`VBS script output: ${stdout}`);
+        }
+
+        if (stderr) {
+          logWarn(`VBS script stderr: ${stderr}`);
+        }
+
+        logInfo("VBS restart script executed successfully");
+        resolve();
+      });
+    } catch (error) {
+      logError("Failed to run VBS restart script", error);
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Starts periodic check for wake from sleep detection
+ * Checks every 10 seconds if the computer woke from sleep (by detecting time jump)
+ * When wake is detected, runs the restart-after-wake.vbs script
+ */
+export function startSleepWakeCheck() {
+  // עצור בדיקה קודמת אם קיימת
+  if (sleepWakeCheckInterval) {
+    clearInterval(sleepWakeCheckInterval);
+    sleepWakeCheckInterval = null;
+  }
+
+  // אתחל את זמן הבדיקה האחרונה
+  lastCheckTime = Date.now();
+  logInfo("Sleep/wake check started - will check every 10 seconds");
+
+  // בדיקה כל 10 שניות
+  sleepWakeCheckInterval = setInterval(async () => {
+    if (isReinitializing || isRestarting) {
+      // לוג רק אם זה לא הפעם הראשונה
+      if (isRestarting) {
+        logInfo("Sleep check skipped - restart already in progress");
+      }
+      return; // כבר בתהליך
+    }
+
+    try {
+      // בדוק אם המחשב התעורר משינה (על ידי זיהוי קפיצה בזמן)
+      const wokeFromSleep = detectWakeFromSleep();
+
+      if (wokeFromSleep && !isRestarting) {
+        // המחשב התעורר משינה - הרץ את ה-VBS script
+        logInfo("Detected computer wake from sleep! Running restart-after-wake.vbs...");
+        isRestarting = true;
+
+        // הפעל VBS script שיסגור הכל ויריץ npm start מחדש
+        setTimeout(async () => {
+          try {
+            await runRestartVBS();
+            // VBS script יריץ את npm start, אז התהליך הנוכחי ייסגר
+            // המתן קצת ואז צא מהתהליך
+            setTimeout(() => {
+              logInfo("Exiting current process - VBS script will restart the application");
+              process.exit(0);
+            }, 3000);
+          } catch (restartError) {
+            logError("Failed to run VBS restart script after wake up", restartError);
+            isRestarting = false; // אפשר ניסיון נוסף בעתיד
+            lastCheckTime = Date.now(); // איפוס זמן הבדיקה
+          }
+        }, 2000);
+      }
+    } catch (error) {
+      logError("Error in sleep/wake check", error);
+      // נמשיך לבדוק גם אם יש שגיאה
+    }
+  }, 10000); // כל 10 שניות
+}
+
+/**
+ * Stops the sleep/wake check
+ */
+export function stopSleepWakeCheck() {
+  if (sleepWakeCheckInterval) {
+    clearInterval(sleepWakeCheckInterval);
+    sleepWakeCheckInterval = null;
   }
 }
 
@@ -477,6 +583,9 @@ export async function isClientReady() {
  * This properly closes the browser and cleans up resources
  */
 export async function destroyClient() {
+  // עצור בדיקת שינה/התעוררות
+  stopSleepWakeCheck();
+
   if (client) {
     try {
       logInfo("Destroying WhatsApp client...");

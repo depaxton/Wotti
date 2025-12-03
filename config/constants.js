@@ -17,3 +17,11 @@ export const COLOR_PALETTE = {
 export const APP_CONFIG = {
   FONT_FAMILY: "var(--font)",
 };
+
+// Google Analytics 4 Configuration
+export const GA4_CONFIG = {
+  MEASUREMENT_ID: "G-X4YZBCNV9S",
+  STREAM_ID: "13075794133",
+  STREAM_NAME: "WOTTI",
+  STREAM_URL: "http://EXAMPLE.COM",
+};
