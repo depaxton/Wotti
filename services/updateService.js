@@ -8,7 +8,7 @@ import axios from "axios";
 import semver from "semver";
 import { UPDATE_CONFIG } from "../config/updateConfig.js";
 import { logInfo, logError, logWarn } from "../utils/logger.js";
-import { downloadFile, validateZipFile, extractZip, createBackup, restoreFromBackup, installUpdate, runNpmInstall, cleanupOldBackups } from "../utils/updateUtils.js";
+import { downloadFile, validateZipFile, extractZip, createBackup, restoreFromBackup, installUpdate, runNpmInstall, cleanupOldBackups, prepareUpdateFiles, launchExternalInstaller } from "../utils/updateUtils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -167,38 +167,34 @@ async function downloadAndInstallUpdate(updateInfo) {
     const extractedDir = path.join(tempDir, "extracted");
     await extractZip(zipPath, extractedDir);
 
-    // Step 5: Install update
-    logInfo("Step 5: Installing update...");
-    await installUpdate(extractedDir);
+    // Step 5: Prepare update files in pending folder (VBS will do actual replacement)
+    logInfo("Step 5: Preparing update files...");
+    await prepareUpdateFiles(extractedDir, updateInfo.remoteVersion);
 
-    // Step 6: Run npm install
-    if (UPDATE_CONFIG.RUN_NPM_INSTALL) {
-      logInfo("Step 6: Running npm install...");
-      await runNpmInstall();
-    }
-
-    // Step 7: Cleanup old backups
-    logInfo("Step 7: Cleaning up old backups...");
+    // Step 6: Cleanup old backups
+    logInfo("Step 6: Cleaning up old backups...");
     await cleanupOldBackups(backupDir, UPDATE_CONFIG.MAX_BACKUPS);
 
-    // Step 8: Cleanup temporary files
-    logInfo("Step 8: Cleaning up temporary files...");
-    await fs.remove(tempDir);
+    // Step 7: Cleanup temp files (keep pending folder!)
+    logInfo("Step 7: Cleaning up temp files...");
+    await fs.remove(path.join(tempDir, "extracted")).catch(() => {});
+    await fs.remove(path.join(tempDir, zipFileName)).catch(() => {});
 
-    logInfo(`Update completed successfully: ${updateInfo.currentVersion} → ${updateInfo.remoteVersion}`);
+    logInfo(`Update prepared: ${updateInfo.currentVersion} → ${updateInfo.remoteVersion}`);
 
-    // Step 9: Restart application
-    logInfo("Restarting application in 2 seconds...");
+    // Step 8: Launch external VBS installer and exit
+    logInfo("Step 8: Launching external installer...");
     await new Promise((resolve) => setTimeout(resolve, UPDATE_CONFIG.RESTART_DELAY));
-
-    // Restart the application
-    restartApplication();
+    await launchExternalInstaller();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    logInfo("Exiting for update...");
+    process.exit(0);
 
     return true;
   } catch (error) {
     logError("Update failed, attempting rollback...", error);
 
-    // Attempt rollback
     try {
       const backupDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_BACKUP_DIR);
       const backupPath = path.join(backupDir, `v${currentVersion}`);
@@ -212,20 +208,15 @@ async function downloadAndInstallUpdate(updateInfo) {
       }
     } catch (rollbackError) {
       logError("Rollback failed", rollbackError);
-      logError("Application may be in inconsistent state - manual intervention required");
     }
 
-    // Cleanup temporary files even on failure
     try {
       const tempDir = path.join(PROJECT_ROOT, UPDATE_CONFIG.UPDATE_TEMP_DIR);
       await fs.remove(tempDir).catch(() => {});
-    } catch (cleanupError) {
-      // Ignore cleanup errors
-    }
+      await fs.remove(path.join(PROJECT_ROOT, "updates", "pending")).catch(() => {});
+    } catch (cleanupError) {}
 
-    // Restart update checker
     startUpdateChecker();
-
     isUpdating = false;
     return false;
   }

@@ -241,9 +241,71 @@ export async function restoreFromBackup(backupPath) {
 }
 
 /**
- * Installs update files from extracted directory
- * @param {string} extractedDir - Directory with extracted files
- * @returns {Promise<void>}
+ * Prepares update files in pending directory
+ * VBS script will do the actual replacement after app closes
+ */
+export async function prepareUpdateFiles(extractedDir, version) {
+  try {
+    const pendingDir = path.join(PROJECT_ROOT, "updates", "pending");
+    logInfo(`Preparing update files in: ${pendingDir}`);
+    
+    await fs.remove(pendingDir);
+    await fs.ensureDir(pendingDir);
+    
+    const itemsToInstall = [
+      "app.js", "index.js", "package.json", "package-lock.json",
+      "script.js", "index.html", "components", "config",
+      "controllers", "routes", "services", "styles", "utils", "assets",
+    ];
+    
+    for (const item of itemsToInstall) {
+      const sourcePath = path.join(extractedDir, item);
+      const destPath = path.join(pendingDir, item);
+      
+      if (await fs.pathExists(sourcePath)) {
+        await fs.copy(sourcePath, destPath, {
+          overwrite: true,
+          filter: (src) => !src.includes("node_modules") && !src.includes(".git"),
+        });
+        logInfo(`Prepared: ${item}`);
+      }
+    }
+    
+    await fs.writeJson(path.join(pendingDir, "update-info.json"), {
+      version, timestamp: Date.now(), preparedAt: new Date().toISOString(),
+    }, { spaces: 2 });
+    
+    logInfo(`Update files prepared for version ${version}`);
+  } catch (error) {
+    logError(`Failed to prepare update files`, error);
+    throw error;
+  }
+}
+
+/**
+ * Launches external VBS installer
+ */
+export async function launchExternalInstaller() {
+  const vbsPath = path.join(PROJECT_ROOT, "scripts", "install-update.vbs");
+  
+  if (!(await fs.pathExists(vbsPath))) {
+    throw new Error(`VBS installer not found: ${vbsPath}`);
+  }
+  
+  logInfo(`Launching external installer: ${vbsPath}`);
+  
+  const { spawn } = await import("child_process");
+  spawn("wscript.exe", [vbsPath], {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  }).unref();
+  
+  logInfo("External installer launched");
+}
+
+/**
+ * @deprecated - causes EBUSY errors, use prepareUpdateFiles instead
  */
 export async function installUpdate(extractedDir) {
   try {
