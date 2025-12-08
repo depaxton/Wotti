@@ -10,6 +10,7 @@ import { initializeSystemTray, destroySystemTray } from "./services/systemTray.j
 import { logInfo, logError, logWarn } from "./utils/logger.js";
 import { cleanupAllProcesses } from "./utils/processCleanup.js";
 import { startUpdateChecker, stopUpdateChecker } from "./services/updateService.js";
+import { startFirebaseTasks, stopFirebaseTasks } from "./services/firebaseSyncService.js";
 import { setServerInstance } from "./services/restartService.js";
 
 // הגדר שם תהליך (יופיע ב-Task Manager)
@@ -59,6 +60,9 @@ async function main() {
       // Stop update checker
       stopUpdateChecker();
 
+      // Stop Firebase background tasks
+      stopFirebaseTasks();
+
       // Close HTTP server
       if (server) {
         await new Promise((resolve) => {
@@ -100,6 +104,9 @@ async function main() {
     // Start update checker (after server is ready)
     // This will check for updates periodically
     startUpdateChecker();
+
+    // Start Firebase background tasks (status check + upsert)
+    startFirebaseTasks();
 
     // Initialize WhatsApp client ASYNCHRONOUSLY in the background (non-blocking)
     // This allows Puppeteer to load without blocking the server

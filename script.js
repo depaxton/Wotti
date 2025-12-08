@@ -21,6 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Track app started
   trackAppStarted();
+
+  // Trigger Firebase user refresh on page load/refresh with retry (phone detection)
+  triggerFirebaseUserRefreshWithRetry();
   
   renderContacts(); // Render empty/fake contacts initially
   initializeContactsSearch(); // Initialize search functionality
@@ -73,6 +76,80 @@ async function loadAppVersionForAnalytics() {
   } catch (error) {
     console.warn("Could not load version for analytics:", error);
     window.appVersion = "unknown";
+  }
+}
+
+/**
+ * Triggers a one-time Firebase user refresh when the UI loads.
+ */
+async function triggerFirebaseUserRefresh() {
+  const API_URL = window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+  const getPhoneFromUi = () => {
+    const el = document.querySelector(".detail-value.detail-value-id");
+    if (!el) return null;
+    const val = (el.textContent || "").trim();
+    return val || null;
+  };
+
+  const fetchPhoneFromApi = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/user/info`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data?.phoneNumber || data?.phone || null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  let phone = getPhoneFromUi();
+  if (!phone) {
+    phone = await fetchPhoneFromApi();
+  }
+
+  if (!phone) {
+    console.warn("Firebase user refresh skipped: phone not found in UI or API");
+    return;
+  }
+
+  const payload = { phone };
+
+  try {
+    const response = await fetch(`${API_URL}/api/firebase/user/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      console.warn("Firebase user refresh failed:", response.statusText);
+      return;
+    }
+    const data = await response.json();
+    console.log("Firebase user refresh succeeded:", data?.user || data);
+  } catch (error) {
+    console.warn("Firebase user refresh error:", error);
+  }
+}
+
+/**
+ * Retries Firebase user refresh a few times to allow UI/API to populate phone.
+ */
+async function triggerFirebaseUserRefreshWithRetry(attempts = 3, delayMs = 1000) {
+  for (let i = 0; i < attempts; i++) {
+    const before = performance.now();
+    await triggerFirebaseUserRefresh();
+    const after = performance.now();
+
+    // If the refresh was skipped due to missing phone, try again after delay
+    // We detect this by checking console warnings isn't straightforward, so just delay and retry.
+    if (i < attempts - 1) {
+      const elapsed = after - before;
+      const wait = Math.max(delayMs - elapsed, 200);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
   }
 }
 

@@ -3,10 +3,10 @@
 ; This script creates a professional installer for Wotti
 
 #define MyAppName "Wotti"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.0.6"
 #define MyAppPublisher "Wotti"
 #define MyAppURL "https://github.com/depaxton/Wotti"
-#define MyAppExeName "launch-wotti.vbs"
+#define MyAppExeName "launch-wotti-visible.vbs"
 #define MyAppId "{{12345678-1234-1234-1234-123456789012}}"
 
 [Setup]
@@ -57,6 +57,7 @@ Source: "UPDATE-PROCESS.md"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Launcher files
 Source: "launch-wotti.vbs"; DestDir: "{app}"; Flags: ignoreversion
+Source: "launch-wotti-visible.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "launch-wotti.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "launch-wotti.bat"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -83,7 +84,7 @@ Filename: "{cmd}"; Parameters: "/c node --version >nul 2>&1"; StatusMsg: "Checki
 Filename: "{cmd}"; Parameters: "/c if errorlevel 1 (echo Node.js not found! Please install Node.js from nodejs.org && pause && exit /b 1)"; StatusMsg: "Verifying Node.js installation..."; Flags: runhidden
 ; Run npm install
 Filename: "{cmd}"; Parameters: "/c cd /d ""{app}"" && npm install"; StatusMsg: "Installing dependencies (npm install)... This may take a few minutes."; Flags: runhidden waituntilterminated
-; Launch application after installation
+; Launch application after installation (using visible launcher to show any errors)
 Filename: "{sys}\wscript.exe"; Parameters: """{app}\{#MyAppExeName}"""; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent; StatusMsg: "Launching {#MyAppName}..."
 
 [Code]

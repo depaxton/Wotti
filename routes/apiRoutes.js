@@ -7,6 +7,7 @@ import { getSettings, updateSettings, getReminderTemplate, updateReminderTemplat
 import { getUserReminders, saveUserReminders, getAllUsersController, sendReminderManually, getAllRemindersController, updateUserName } from "../controllers/userController.js";
 import { getMessages, sendMessage, getMessageMedia, deleteMessage, getChatStatus, searchMessages } from "../controllers/chatController.js";
 import { manualUpdateCheck, manualUpdateInstall, getUpdateStatus } from "../services/updateService.js";
+import { checkUserStatus as checkFirebaseUserStatus, refreshFirebaseUser } from "../services/firebaseSyncService.js";
 import { restartApplication } from "../services/restartService.js";
 import fs from "fs-extra";
 import path from "path";
@@ -100,6 +101,37 @@ router.post("/update/install", async (req, res) => {
       message: "Update installation started",
       updateInfo 
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Firebase helpers
+router.get("/firebase/user/status", async (req, res) => {
+  try {
+    const phone = (req.query.phone || "").trim() || null;
+    const user = await checkFirebaseUserStatus(phone);
+    res.json({ phone: user?.phone || phone || null, user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/firebase/user/refresh", async (req, res) => {
+  try {
+    const {
+      phone,
+      displayName,
+    } = req.body || {};
+
+    const user = await refreshFirebaseUser({
+      phone,
+      displayName,
+    });
+    if (!user) {
+      return res.status(400).json({ success: false, error: "Missing or invalid phone" });
+    }
+    res.json({ success: true, phone: user.phone || phone || null, user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

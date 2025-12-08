@@ -26,13 +26,14 @@ function Test-ProcessRunning {
     param([string]$ProcessName)
     try {
         # Use WMI to check command line of node processes
+        # Check for both "npm start" and direct "node index.js"
         $processes = Get-WmiObject Win32_Process -Filter "name='node.exe'" -ErrorAction SilentlyContinue | Where-Object {
-            $_.CommandLine -like "*$NODE_SCRIPT*" -and
-            $_.CommandLine -like "*$APP_DIR*"
+            ($_.CommandLine -like "*$NODE_SCRIPT*" -or $_.CommandLine -like "*npm start*") -and
+            ($_.CommandLine -like "*$APP_DIR*" -or $_.WorkingDirectory -eq $APP_DIR)
         }
         return ($processes -ne $null -and $processes.Count -gt 0)
     } catch {
-        # Fallback: just check if any node process exists
+        # Fallback: just check if any node process exists and port is in use
         $nodeProcesses = Get-Process -Name node -ErrorAction SilentlyContinue
         return ($nodeProcesses.Count -gt 0)
     }
@@ -59,24 +60,41 @@ function Start-Application {
         exit 1
     }
     
-    # Start the application
+    # Check if package.json exists
+    if (-not (Test-Path "package.json")) {
+        Write-Host "package.json not found!" -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    
+    # Start the application using npm start (as defined in package.json)
     try {
-        # Use Start-Process to run in new window, but keep it visible
+        Write-Host "Starting application with: npm start" -ForegroundColor Cyan
+        Write-Host ""
+        
+        # Use Start-Process to run npm start in a visible window
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $processInfo.FileName = "node"
-        $processInfo.Arguments = "`"$NODE_SCRIPT`""
+        $processInfo.FileName = "npm"
+        $processInfo.Arguments = "start"
         $processInfo.WorkingDirectory = $APP_DIR
         $processInfo.UseShellExecute = $false
         $processInfo.CreateNoWindow = $false
+        $processInfo.RedirectStandardOutput = $false
+        $processInfo.RedirectStandardError = $false
         
         $process = [System.Diagnostics.Process]::Start($processInfo)
         
         Write-Host "Application started. Process ID: $($process.Id)" -ForegroundColor Green
-        Write-Host "Opening browser in 3 seconds..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 3
+        Write-Host "Waiting for server to start..." -ForegroundColor Yellow
+        Write-Host "Opening browser in 5 seconds..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
         Open-Browser -Url $APP_URL
     } catch {
         Write-Host "Failed to start application: $_" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Error details:" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ""
         Read-Host "Press Enter to exit"
         exit 1
     }
