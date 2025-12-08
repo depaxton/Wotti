@@ -1,8 +1,8 @@
 {
-  "version": "1.0.8",
-  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.8/wotti-1.0.8.zip",
+  "version": "1.0.9",
+  "downloadUrl": "https://github.com/depaxton/Wotti/releases/download/v1.0.9/wotti-1.0.9.zip",
   "releaseDate": "2025-12-08",
-  "changelog": "גרסה 1.0.8 - תיקון מערכת העדכון האוטומטי (פתרון בעיית EBUSY)",
+  "changelog": "גרסה 1.0.9 - בדיקת מערכת העדכון האוטומטי",
   "required": false,
   "minVersion": null
 }
