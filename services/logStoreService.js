@@ -39,7 +39,7 @@ export function getLogEntries(opts = {}) {
     list = list.filter((e) => e.level === level);
   }
   const total = list.length;
-  const slice = list.slice(-limit);
+  const slice = list.slice(-limit).reverse(); // תצוגה: מחדש לישן
   return { entries: slice, total };
 }
 
