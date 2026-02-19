@@ -84,13 +84,13 @@ export async function createAISettingsPanel() {
   const content = document.createElement("div");
   content.className = "ai-settings-content";
 
+  // Status Section - compact at top
+  const statusSection = createStatusSection(state);
+  content.appendChild(statusSection);
+
   // API Key Section (enter and save key)
   const apiKeySection = createApiKeySection(state);
   content.appendChild(apiKeySection);
-
-  // Status Section
-  const statusSection = createStatusSection(state);
-  content.appendChild(statusSection);
 
   // Instructions Section
   const instructionsSection = createInstructionsSection(state);
@@ -186,77 +186,99 @@ export async function createAISettingsPanel() {
 }
 
 /**
- * Create API key section - enter, save, display and delete Gemini API key
+ * Create API key section - compact display with "Add Key" button that opens dialog
  * המפתח נשמר מקומית (config/gemini-config.json) ונטען בהפעלה הבאה.
- * לאחר שמירה - המפתח מוצג חשוף (לא כסיסמה).
  */
 function createApiKeySection(state) {
   const section = document.createElement("div");
-  section.className = "ai-settings-section";
+  section.className = "ai-settings-section ai-api-key-section-compact";
   section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
-      </svg>
-      מפתח API (Gemini)
-    </div>
-    <div id="apiKeySavedContainer" class="api-key-saved-container" style="display: none;">
-      <label class="form-label">מפתח שמור (חשוף)</label>
-      <input 
-        type="text" 
-        id="aiApiKeyDisplay" 
-        class="form-input api-key-display" 
-        readonly
-        autocomplete="off"
-      />
-      <div class="api-key-actions">
-        <button type="button" id="deleteApiKeyBtn" class="btn btn-danger btn-small">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="api-key-header-row">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+        </svg>
+        מפתח API
+      </div>
+      <div class="api-key-actions-row">
+        <span id="apiKeyStatusLabel" class="api-key-status-label">לא מוגדר</span>
+        <button type="button" id="addApiKeyBtn" class="btn btn-primary btn-small">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          הוספת מפתח
+        </button>
+        <button type="button" id="deleteApiKeyBtn" class="btn btn-danger btn-small" style="display: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
           </svg>
-          מחק מפתח
+          מחק
         </button>
       </div>
     </div>
-    <div id="apiKeyInputContainer" class="form-group">
-      <label class="form-label" for="aiApiKeyInput">מפתח API חדש</label>
-      <input 
-        type="password" 
-        id="aiApiKeyInput" 
-        class="form-input api-key-input" 
-        placeholder="הזן את מפתח ה-API שלך מ-Google AI Studio"
-        autocomplete="off"
-      />
-      <div class="form-hint">
-        💡 ניתן להשיג מפתח בחינם ב-<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. המפתח נשמר מקומית בקובץ config.
+    <!-- Hidden dialog for adding API key -->
+    <div id="apiKeyDialog" class="api-key-dialog" style="display: none;">
+      <div class="api-key-dialog-content">
+        <div class="api-key-dialog-header">
+          <span>הוספת מפתח API</span>
+          <button type="button" id="closeApiKeyDialogBtn" class="api-key-dialog-close">×</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="aiApiKeyInput">מפתח API</label>
+          <input 
+            type="password" 
+            id="aiApiKeyInput" 
+            class="form-input api-key-input" 
+            placeholder="הזן את מפתח ה-API שלך מ-Google AI Studio"
+            autocomplete="off"
+          />
+          <div class="form-hint">
+            💡 ניתן להשיג מפתח בחינם ב-<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+          </div>
+        </div>
+        <button type="button" id="saveApiKeyBtn" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          שמור מפתח
+        </button>
       </div>
     </div>
-    <button type="button" id="saveApiKeyBtn" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-        <polyline points="7 3 7 8 15 8"></polyline>
-      </svg>
-      שמור מפתח
-    </button>
   `;
 
-  const savedContainer = section.querySelector("#apiKeySavedContainer");
-  const displayInput = section.querySelector("#aiApiKeyDisplay");
-  const inputContainer = section.querySelector("#apiKeyInputContainer");
+  const statusLabel = section.querySelector("#apiKeyStatusLabel");
+  const addBtn = section.querySelector("#addApiKeyBtn");
+  const deleteBtn = section.querySelector("#deleteApiKeyBtn");
+  const dialog = section.querySelector("#apiKeyDialog");
+  const closeDialogBtn = section.querySelector("#closeApiKeyDialogBtn");
   const input = section.querySelector("#aiApiKeyInput");
   const saveBtn = section.querySelector("#saveApiKeyBtn");
-  const deleteBtn = section.querySelector("#deleteApiKeyBtn");
 
   function updateApiKeyUI(apiKey) {
     const hasKey = !!(apiKey && apiKey.trim());
-    if (savedContainer) savedContainer.style.display = hasKey ? 'block' : 'none';
-    if (displayInput) displayInput.value = hasKey ? apiKey : '';
+    if (statusLabel) {
+      statusLabel.textContent = hasKey ? 'מוגדר ✓' : 'לא מוגדר';
+      statusLabel.className = `api-key-status-label ${hasKey ? 'api-key-configured' : ''}`;
+    }
     if (deleteBtn) deleteBtn.style.display = hasKey ? 'inline-flex' : 'none';
+    if (addBtn) addBtn.style.display = hasKey ? 'none' : 'inline-flex';
   }
+
+  // Open dialog
+  addBtn.addEventListener("click", () => {
+    dialog.style.display = 'block';
+    if (input) input.focus();
+  });
+
+  // Close dialog
+  closeDialogBtn.addEventListener("click", () => {
+    dialog.style.display = 'none';
+    if (input) input.value = '';
+  });
 
   saveBtn.addEventListener("click", async () => {
     const apiKey = (input && input.value) ? input.value.trim() : '';
@@ -279,6 +301,7 @@ function createApiKeySection(state) {
       if (result.success) {
         toast.success('מפתח ה-API נשמר בהצלחה');
         if (input) input.value = '';
+        dialog.style.display = 'none';
         updateApiKeyUI(apiKey);
         const statusSectionEl = document.getElementById('aiStatusContainer')?.closest('.ai-settings-section');
         if (statusSectionEl) {
@@ -325,27 +348,27 @@ function createApiKeySection(state) {
 }
 
 /**
- * Create status section
+ * Create status section - compact inline version
  */
 function createStatusSection(state) {
   const section = document.createElement("div");
-  section.className = "ai-settings-section";
+  section.className = "ai-settings-section ai-status-section-compact";
   section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      סטטוס מערכת
-    </div>
-    <div id="aiStatusContainer" class="status-container">
-      <div class="status-item">
-        <span class="status-label">מצב:</span>
-        <span id="aiStatusText" class="status-value">טוען...</span>
+    <div id="aiStatusContainer" class="status-container-compact">
+      <div class="status-item-compact">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span class="status-label-compact">מצב:</span>
+        <span id="aiStatusText" class="status-value status-value-compact">טוען...</span>
       </div>
-      <div class="status-item">
-        <span class="status-label">API Key:</span>
-        <span id="aiApiKeyStatus" class="status-value">טוען...</span>
+      <div class="status-item-compact">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+        </svg>
+        <span class="status-label-compact">API:</span>
+        <span id="aiApiKeyStatus" class="status-value status-value-compact">טוען...</span>
       </div>
     </div>
   `;
@@ -353,46 +376,68 @@ function createStatusSection(state) {
 }
 
 /**
- * Create instructions section
+ * Create instructions section - collapsible with toggle button
  */
 function createInstructionsSection(state) {
   const section = document.createElement("div");
-  section.className = "ai-settings-section";
+  section.className = "ai-settings-section ai-collapsible-section";
   section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-        <line x1="16" y1="13" x2="8" y2="13"></line>
-        <line x1="16" y1="17" x2="8" y2="17"></line>
-        <polyline points="10 9 9 9 8 9"></polyline>
-      </svg>
-      הוראות מערכת (System Instructions)
-    </div>
-    <div class="form-group">
-      <label class="form-label">הנחיות התנהגות ל-Gemini</label>
-      <textarea 
-        id="aiInstructionsEditor" 
-        class="instructions-editor" 
-        rows="10"
-        placeholder="הזן כאן את ההוראות ל-Gemini..."
-      ></textarea>
-      <div class="form-hint">
-        💡 ההוראות האלה יישלחו ל-Gemini בכל שיחה. השתמש בהן כדי להגדיר את אופן התנהגות ה-AI.
+    <div class="collapsible-header">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        הוראות מערכת
       </div>
+      <button type="button" id="toggleInstructionsBtn" class="btn btn-secondary btn-small collapsible-toggle">
+        <svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+        ערוך הוראות AI
+      </button>
     </div>
-    <button type="button" id="saveInstructionsBtn" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-        <polyline points="7 3 7 8 15 8"></polyline>
-      </svg>
-      שמור הוראות
-    </button>
+    <div id="instructionsContent" class="collapsible-content" style="display: none;">
+      <div class="form-group">
+        <label class="form-label">הנחיות התנהגות ל-Gemini</label>
+        <textarea 
+          id="aiInstructionsEditor" 
+          class="instructions-editor" 
+          rows="10"
+          placeholder="הזן כאן את ההוראות ל-Gemini..."
+        ></textarea>
+        <div class="form-hint">
+          💡 ההוראות האלה יישלחו ל-Gemini בכל שיחה. השתמש בהן כדי להגדיר את אופן התנהגות ה-AI.
+        </div>
+      </div>
+      <button type="button" id="saveInstructionsBtn" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        שמור הוראות
+      </button>
+    </div>
   `;
 
+  const toggleBtn = section.querySelector("#toggleInstructionsBtn");
+  const contentDiv = section.querySelector("#instructionsContent");
   const saveBtn = section.querySelector("#saveInstructionsBtn");
   const editor = section.querySelector("#aiInstructionsEditor");
+
+  let isOpen = false;
+
+  toggleBtn.addEventListener("click", () => {
+    isOpen = !isOpen;
+    contentDiv.style.display = isOpen ? 'block' : 'none';
+    toggleBtn.innerHTML = isOpen 
+      ? `<svg class="toggle-icon rotated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> סגור הוראות AI`
+      : `<svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> ערוך הוראות AI`;
+  });
 
   saveBtn.addEventListener("click", async () => {
     const instructions = editor.value;
@@ -518,33 +563,56 @@ function contactToUserId(contact) {
 }
 
 /**
- * Create "Start conversation with contact" section - search contacts and start AI conversation
+ * Create "Start conversation with contact" section - collapsible with toggle button
  */
 function createStartConversationSection(state) {
   const section = document.createElement("div");
-  section.className = "ai-settings-section";
+  section.className = "ai-settings-section ai-collapsible-section";
   section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        <path d="M17 2l4 4-4 4"></path>
-        <path d="M3 11v2a4 4 0 0 0 4 4h12"></path>
-      </svg>
-      התחל שיחה עם איש קשר
+    <div class="collapsible-header">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          <path d="M17 2l4 4-4 4"></path>
+          <path d="M3 11v2a4 4 0 0 0 4 4h12"></path>
+        </svg>
+        התחלת שיחה עם איש קשר
+      </div>
+      <button type="button" id="toggleStartConvBtn" class="btn btn-secondary btn-small collapsible-toggle">
+        <svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+        התחלת שיחה
+      </button>
     </div>
-    <div class="form-group">
-      <input 
-        type="text" 
-        id="aiContactSearchInput" 
-        class="form-input api-key-input" 
-        placeholder="חפש לפי שם או מספר..."
-        autocomplete="off"
-      />
-    </div>
-    <div id="aiContactsListContainer" class="ai-contacts-list-container">
-      <div class="loading-text">טוען אנשי קשר...</div>
+    <div id="startConvContent" class="collapsible-content" style="display: none;">
+      <div class="form-group">
+        <input 
+          type="text" 
+          id="aiContactSearchInput" 
+          class="form-input api-key-input" 
+          placeholder="חפש לפי שם או מספר..."
+          autocomplete="off"
+        />
+      </div>
+      <div id="aiContactsListContainer" class="ai-contacts-list-container">
+        <div class="loading-text">טוען אנשי קשר...</div>
+      </div>
     </div>
   `;
+
+  const toggleBtn = section.querySelector("#toggleStartConvBtn");
+  const contentDiv = section.querySelector("#startConvContent");
+
+  let isOpen = false;
+
+  toggleBtn.addEventListener("click", () => {
+    isOpen = !isOpen;
+    contentDiv.style.display = isOpen ? 'block' : 'none';
+    toggleBtn.innerHTML = isOpen 
+      ? `<svg class="toggle-icon rotated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> סגור`
+      : `<svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> התחלת שיחה`;
+  });
 
   const searchInput = section.querySelector("#aiContactSearchInput");
   const listContainer = section.querySelector("#aiContactsListContainer");

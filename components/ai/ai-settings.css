@@ -119,7 +119,86 @@
   color: #128C7E;
 }
 
-/* Status Section */
+/* Collapsible Sections */
+.ai-collapsible-section {
+  margin-bottom: 20px !important;
+  padding-bottom: 20px !important;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.collapsible-header .section-title {
+  margin-bottom: 0;
+}
+
+.collapsible-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.collapsible-toggle .toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+.collapsible-toggle .toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  margin-top: 16px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+/* Status Section - Compact */
+.ai-status-section-compact {
+  margin-bottom: 15px !important;
+  padding-bottom: 15px !important;
+}
+
+.status-container-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-item-compact svg {
+  color: #666;
+}
+
+.status-label-compact {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.status-value-compact {
+  padding: 2px 8px !important;
+  font-size: 12px !important;
+}
+
 .status-container {
   display: flex;
   flex-direction: column;
@@ -419,6 +498,97 @@
   outline: none;
   border-color: #4a90d9;
   box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+/* API Key Section - Compact */
+.ai-api-key-section-compact {
+  margin-bottom: 20px !important;
+  padding-bottom: 20px !important;
+}
+
+.api-key-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.api-key-header-row .section-title {
+  margin-bottom: 0;
+}
+
+.api-key-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.api-key-status-label {
+  font-size: 13px;
+  color: #666;
+  padding: 4px 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.api-key-status-label.api-key-configured {
+  background: #d4edda;
+  color: #155724;
+}
+
+/* API Key Dialog */
+.api-key-dialog {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.api-key-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.api-key-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.api-key-dialog-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.api-key-dialog-close:hover {
+  color: #1a1a1a;
+}
+
+.api-key-dialog .form-group {
+  margin-bottom: 0;
 }
 
 /* API Key Saved Display - מפתח שמור (חשוף) */
