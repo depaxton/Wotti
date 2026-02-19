@@ -179,6 +179,12 @@
     height: 50%;
     border-right: none;
     border-bottom: 1px solid var(--shadow-dark-05);
+    min-height: 0; /* Allow flex child to shrink so inner scroll works */
+  }
+
+  /* When chat panel is hidden on mobile, reminder panel takes full height so "רשימת תזכורות" is visible */
+  .split-container .reminder-panel {
+    height: 100%;
   }
 
   .reminder-panel-full {
@@ -190,6 +196,18 @@
     width: 100%;
     height: 50%;
     display: none; /* Hide chat panel on mobile when chat is enabled but we want reminders only */
+  }
+
+  /* Allow reminder container to shrink and scroll; space at bottom so "רשימת תזכורות" is not hidden behind side menu */
+  .chat-area .reminder-panel #reminderContainer,
+  .chat-area .reminder-panel-full #reminderContainer {
+    min-height: 0;
+  }
+
+  .chat-area .reminder-panel .reminder-container,
+  .chat-area .reminder-panel-full .reminder-container {
+    padding-bottom: 100px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .chat-container {

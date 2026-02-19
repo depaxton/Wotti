@@ -36,10 +36,11 @@ fi
 if [ -f /etc/debian_version ]; then
   echo "📦 Installing Chromium dependencies for headless browser..."
   apt-get update -qq
-  apt-get install -y -qq \
-    ca-certificates fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 \
-    libatk1.0-0 libcups2 libdbus-1-3 libgdk-pixbuf2.0-0 libnspr4 libnss3 \
-    libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 xdg-utils 2>/dev/null || true
+  apt-get install -y \
+    ca-certificates fonts-liberation libappindicator3-1 libasound2 \
+    libatk-bridge2.0-0 libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 \
+    libgdk-pixbuf2.0-0 libgtk-3-0 libnspr4 libnss3 libx11-xcb1 libxcomposite1 \
+    libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xdg-utils
   echo "✅ Chromium dependencies done."
 fi
 
