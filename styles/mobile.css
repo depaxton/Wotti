@@ -499,13 +499,16 @@
   .day-reminders-sidebar {
     width: 100vw;
     max-width: 100vw;
-    height: 100vh;
+    height: calc(100vh - var(--actual-bottom-nav-height));
+    height: calc(100dvh - var(--actual-bottom-nav-height));
     position: fixed;
     top: 0;
     right: 0;
     z-index: 300;
     transform: translateX(100%);
     transition: transform 0.3s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .day-reminders-sidebar.active {
@@ -542,7 +545,8 @@
   .user-settings-panel-center {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
+    height: calc(100vh - var(--actual-bottom-nav-height)) !important;
+    height: calc(100dvh - var(--actual-bottom-nav-height)) !important;
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
@@ -551,6 +555,8 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .user-profile-panel.active,
@@ -564,7 +570,8 @@
   .reminder-settings-panel-center {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
+    height: calc(100vh - var(--actual-bottom-nav-height)) !important;
+    height: calc(100dvh - var(--actual-bottom-nav-height)) !important;
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
@@ -573,6 +580,8 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .reminder-settings-panel.active,
@@ -640,7 +649,7 @@
   .profile-content,
   .settings-content {
     padding: 20px;
-    padding-bottom: 100px; /* Space for bottom nav */
+    padding-bottom: 24px;
   }
 
   .profile-section,
@@ -692,7 +701,8 @@
   .meeting-calendar-panel {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
+    height: calc(100vh - var(--actual-bottom-nav-height)) !important;
+    height: calc(100dvh - var(--actual-bottom-nav-height)) !important;
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
@@ -701,6 +711,8 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .meeting-calendar-panel.active {
@@ -724,7 +736,7 @@
 
   .meeting-calendar-content {
     padding: 16px;
-    padding-bottom: 100px;
+    padding-bottom: 24px;
   }
 
   .week-view {
@@ -786,7 +798,8 @@
   .ai-settings-panel-center {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
+    height: calc(100vh - var(--actual-bottom-nav-height)) !important;
+    height: calc(100dvh - var(--actual-bottom-nav-height)) !important;
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
@@ -795,6 +808,8 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .ai-settings-panel.active,
@@ -812,7 +827,7 @@
 
   .ai-settings-content {
     padding: 20px;
-    padding-bottom: 100px;
+    padding-bottom: 24px;
   }
 
   .ai-status-section,
