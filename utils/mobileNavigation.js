@@ -12,6 +12,23 @@ export function isMobile() {
 }
 
 /**
+ * Measures the bottom nav height and sets a CSS custom property
+ * This allows content areas to dynamically adjust their height
+ */
+export function updateBottomNavHeight() {
+  if (!isMobile()) {
+    document.documentElement.style.removeProperty('--actual-bottom-nav-height');
+    return;
+  }
+  
+  const sideMenu = document.querySelector('.side-menu');
+  if (sideMenu) {
+    const height = sideMenu.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--actual-bottom-nav-height', `${height}px`);
+  }
+}
+
+/**
  * Shows the chat area and hides contacts sidebar on mobile
  */
 export function showChatArea() {
@@ -132,8 +149,14 @@ export function handleMobileResize() {
 export function initMobileNavigation() {
   // Listen for window resize
   window.addEventListener("resize", handleMobileResize);
+  window.addEventListener("resize", updateBottomNavHeight);
   
   // Handle initial mobile state
   handleMobileResize();
+  
+  // Measure bottom nav height after DOM is ready
+  requestAnimationFrame(() => {
+    updateBottomNavHeight();
+  });
 }
 

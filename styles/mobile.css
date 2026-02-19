@@ -5,9 +5,10 @@
 
 /* Mobile Breakpoint: 768px and below */
 @media (max-width: 768px) {
-  /* Bottom nav height: reserve space so content is never hidden under it */
+  /* Bottom nav height: fallback value, actual height is set dynamically via JS */
   :root {
     --mobile-bottom-nav-height: 72px;
+    --actual-bottom-nav-height: 72px; /* Will be overwritten by JS with real measured value */
   }
 
   /* ============================================
@@ -33,7 +34,8 @@
     width: 100%;
     min-width: 100%;
     max-width: 100%;
-    height: 100vh;
+    height: calc(100vh - var(--actual-bottom-nav-height));
+    height: calc(100dvh - var(--actual-bottom-nav-height)); /* Modern browsers: dynamic viewport height */
     position: fixed;
     top: 0;
     right: 0;
@@ -42,7 +44,7 @@
     box-shadow: none;
     transition: transform 0.3s ease;
     box-sizing: border-box;
-    padding-bottom: var(--mobile-bottom-nav-height);
+    overflow-y: auto;
   }
 
   .contacts-sidebar.hidden {
@@ -138,7 +140,8 @@
   
   .chat-area {
     width: 100%;
-    height: 100vh;
+    height: calc(100vh - var(--actual-bottom-nav-height));
+    height: calc(100dvh - var(--actual-bottom-nav-height)); /* Modern browsers: dynamic viewport height */
     position: fixed;
     top: 0;
     right: 0;
@@ -148,7 +151,7 @@
     transition: transform 0.3s ease;
     background-color: var(--color-white);
     box-sizing: border-box;
-    padding-bottom: var(--mobile-bottom-nav-height);
+    overflow: hidden;
   }
 
   .chat-area.active {
@@ -215,7 +218,7 @@
 
   .chat-area .reminder-panel .reminder-container,
   .chat-area .reminder-panel-full .reminder-container {
-    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px); /* space above bottom nav so "רשימת תזכורות" is fully visible */
+    padding-bottom: 24px; /* breathing room at end of scroll */
     -webkit-overflow-scrolling: touch;
   }
 
@@ -389,7 +392,7 @@
   
   .reminder-interface {
     padding: 16px;
-    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px);
+    padding-bottom: 24px; /* breathing room at end of scroll */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -575,7 +578,7 @@
 
   .reminder-settings-panel .reminder-settings-section,
   .reminder-settings-panel-center .reminder-settings-section {
-    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px);
+    padding-bottom: 24px; /* breathing room at end of scroll */
   }
 
   .profile-header,
@@ -947,24 +950,12 @@
       padding-right: max(0px, env(safe-area-inset-right));
     }
 
-    /* Content areas: reserve space above bottom nav + safe area so nothing is hidden */
-    .contacts-sidebar,
-    .chat-area {
-      padding-bottom: max(var(--mobile-bottom-nav-height), calc(64px + env(safe-area-inset-bottom)));
-    }
-
     .side-menu {
       padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
 
     .chat-input-container {
       padding-bottom: max(10px, env(safe-area-inset-bottom));
-    }
-
-    /* Reminder scroll areas: extra bottom space so content stays above bottom nav + safe area */
-    .chat-area .reminder-panel .reminder-container,
-    .chat-area .reminder-panel-full .reminder-container {
-      padding-bottom: max(calc(var(--mobile-bottom-nav-height) + 24px), calc(24px + env(safe-area-inset-bottom) + var(--mobile-bottom-nav-height)));
     }
   }
 }
