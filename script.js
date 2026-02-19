@@ -401,8 +401,8 @@ function initQRCodeDisplay() {
     }
   };
 
-  // Check for new messages every 2 minutes (only after initial load)
-  const MESSAGE_CHECK_INTERVAL_MS = 2 * 60 * 1000; // 120000 = 2 minutes
+  // Check for new messages every 5 minutes (only after initial load)
+  const MESSAGE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 300000 = 5 minutes
   setTimeout(() => {
     const messageCheckInterval = setInterval(checkNewMessages, MESSAGE_CHECK_INTERVAL_MS);
     // Store interval ID for potential cleanup (though we don't need to stop it)
@@ -533,4 +533,13 @@ function initContactsLoader() {
   } else {
     console.error("Refresh button not found! Make sure the button has id='refreshContactsButton'");
   }
+
+  // Auto-refresh chats (same as refresh button) every 2 minutes
+  const CHATS_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+  const REFRESH_START_DELAY_MS = 10000; // Start first auto-refresh 10 seconds after page load
+  setTimeout(() => {
+    window.chatsRefreshInterval = setInterval(() => {
+      loadContacts().catch((err) => console.warn("Auto-refresh contacts failed:", err));
+    }, CHATS_REFRESH_INTERVAL_MS);
+  }, REFRESH_START_DELAY_MS);
 }
