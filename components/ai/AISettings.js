@@ -470,48 +470,69 @@ function createInstructionsSection(state) {
 }
 
 /**
- * Create mode section
+ * Create mode section – with "עריכת מצב פעולה" toggle to show/hide content
  */
 function createModeSection(state) {
   const section = document.createElement("div");
-  section.className = "ai-settings-section";
+  section.className = "ai-settings-section ai-collapsible-section";
   section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"></circle>
-        <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
-      </svg>
-      מצב פעולה
-    </div>
-    <div class="mode-container">
-      <div class="mode-option">
-        <input type="radio" id="modeManual" name="aiMode" value="manual">
-        <label for="modeManual">
-          <strong>ידני</strong>
-          <span class="mode-description">שיחות AI יופעלו רק ידנית</span>
-        </label>
+    <div class="collapsible-header">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"></path>
+        </svg>
+        מצב פעולה
       </div>
-      <div class="mode-option">
-        <input type="radio" id="modeAuto" name="aiMode" value="auto">
-        <label for="modeAuto">
-          <strong>אוטומטי</strong>
-          <span class="mode-description">המערכת תבחר אוטומטית צ'אטים ותתחיל שיחות</span>
-        </label>
-      </div>
+      <button type="button" id="toggleModeEditBtn" class="btn btn-secondary btn-small collapsible-toggle">
+        <svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+        עריכת מצב פעולה
+      </button>
     </div>
-    <div id="modeStatus" class="mode-status"></div>
-    <button type="button" id="saveModeBtn" class="btn btn-primary" style="margin-top: 15px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-      שמור מצב
-    </button>
+    <div id="modeSectionContent" class="collapsible-content" style="display: none;">
+      <div class="mode-container">
+        <div class="mode-option">
+          <input type="radio" id="modeManual" name="aiMode" value="manual">
+          <label for="modeManual">
+            <strong>ידני</strong>
+            <span class="mode-description">שיחות AI יופעלו רק ידנית</span>
+          </label>
+        </div>
+        <div class="mode-option">
+          <input type="radio" id="modeAuto" name="aiMode" value="auto">
+          <label for="modeAuto">
+            <strong>אוטומטי</strong>
+            <span class="mode-description">המערכת תבחר אוטומטית צ'אטים ותתחיל שיחות</span>
+          </label>
+        </div>
+      </div>
+      <div id="modeStatus" class="mode-status"></div>
+      <button type="button" id="saveModeBtn" class="btn btn-primary" style="margin-top: 15px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        שמור מצב
+      </button>
+    </div>
   `;
 
   const manualRadio = section.querySelector("#modeManual");
   const autoRadio = section.querySelector("#modeAuto");
   const saveBtn = section.querySelector("#saveModeBtn");
   const statusDiv = section.querySelector("#modeStatus");
+  const toggleBtn = section.querySelector("#toggleModeEditBtn");
+  const modeContent = section.querySelector("#modeSectionContent");
+
+  let modeSectionOpen = false;
+  toggleBtn.addEventListener("click", () => {
+    modeSectionOpen = !modeSectionOpen;
+    modeContent.style.display = modeSectionOpen ? "block" : "none";
+    toggleBtn.innerHTML = modeSectionOpen
+      ? `<svg class="toggle-icon rotated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> סגור`
+      : `<svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> עריכת מצב פעולה`;
+  });
 
   saveBtn.addEventListener("click", async () => {
     const selectedMode = manualRadio.checked ? 'manual' : 'auto';

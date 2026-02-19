@@ -156,31 +156,51 @@ export function initSideMenu() {
 }
 
 /**
- * מעבר למסך הבית (אנשי קשר + תורים) – לשימוש במובייל
+ * מעבר למסך הבית (אנשי קשר + תורים) – סוגר את כל הפאנלים שנפתחו (מובייל)
  */
 function goToHome() {
-  showContactsSidebar();
   const chatArea = document.querySelector(".chat-area");
+  const placeholderHtml = `
+    <div class="chat-placeholder" id="chatPlaceholder">
+      <div class="placeholder-content">
+        <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+        <p>התזכורות שלך יופיעו כאן</p>
+      </div>
+    </div>
+  `;
+
+  const panelSelectors = [
+    ".marketing-panel",
+    ".user-profile-panel",
+    ".reminder-settings-panel",
+    ".meeting-calendar-panel",
+    ".ai-settings-panel",
+    ".logs-panel",
+    ".business-hours-panel",
+    ".service-categories-panel",
+    ".day-reminders-sidebar",
+    ".sliding-panel-overlay",
+    ".sliding-panel",
+    ".day-details-modal",
+    ".service-categories-modal-overlay",
+    ".marketing-modal-overlay",
+    ".appointment-edit-overlay",
+  ];
+
+  panelSelectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  });
+
   if (chatArea) {
-    const placeholder = document.getElementById("chatPlaceholder");
-    if (!placeholder) {
-      chatArea.innerHTML = `
-        <div class="chat-placeholder" id="chatPlaceholder">
-          <div class="placeholder-content">
-            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
-            <p>התזכורות שלך יופיעו כאן</p>
-          </div>
-        </div>
-      `;
-    }
+    chatArea.innerHTML = placeholderHtml;
   }
-  const marketingPanel = document.querySelector(".marketing-panel");
-  if (marketingPanel && marketingPanel.parentNode) {
-    marketingPanel.parentNode.removeChild(marketingPanel);
-  }
+
+  showContactsSidebar();
 }
 
 /**

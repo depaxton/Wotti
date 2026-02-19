@@ -631,14 +631,26 @@
     flex: 1;
   }
 
-  /* במצב מובייל – מסתירים "חזרה" ו"סגירה", ניווט דרך התפריט התחתון */
+  /* במצב מובייל – מסתירים "חזרה" ו"סגירה" בכל העמודים, ניווט דרך התפריט התחתון */
   .panel-back-button,
   .reminder-back-button,
   .mobile-back-button {
     display: none !important;
   }
 
-  .marketing-header .marketing-close-btn {
+  .marketing-close-btn,
+  .close-ai-settings-btn,
+  .close-logs-panel-btn,
+  .close-meeting-calendar-btn,
+  .close-service-categories-btn,
+  .close-business-hours-btn,
+  .close-reminder-settings-btn,
+  .close-user-profile-btn,
+  .close-day-reminders-sidebar-btn,
+  .close-day-details-btn,
+  .close-panel-btn,
+  .appointment-edit-close,
+  .chat-search-close {
     display: none !important;
   }
 
