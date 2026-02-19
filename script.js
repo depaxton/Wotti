@@ -401,8 +401,8 @@ function initQRCodeDisplay() {
     }
   };
 
-  // Check for new messages every 5 minutes (only after initial load)
-  const MESSAGE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 300000 = 5 minutes
+  // Check for new messages every 2 minutes (only after initial load)
+  const MESSAGE_CHECK_INTERVAL_MS = 2 * 60 * 1000; // 120000 = 2 minutes
   setTimeout(() => {
     const messageCheckInterval = setInterval(checkNewMessages, MESSAGE_CHECK_INTERVAL_MS);
     // Store interval ID for potential cleanup (though we don't need to stop it)
