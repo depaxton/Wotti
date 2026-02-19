@@ -7,6 +7,7 @@ import { createAISettingsPanel } from '../ai/AISettings.js';
 import { createMarketingDistributionPanel } from '../marketing/MarketingDistributionPanel.js';
 import { createBusinessHoursPanel } from '../businessHours/BusinessHours.js';
 import { createServiceCategoriesPanel } from '../serviceCategories/ServiceCategories.js';
+import { createLogsPanel } from '../logs/LogsPanel.js';
 
 /**
  * Initializes the side menu toggle functionality
@@ -118,6 +119,15 @@ export function initSideMenu() {
     serviceCategoriesMenuItem.addEventListener("click", async (e) => {
       e.stopPropagation();
       await createServiceCategoriesPanel();
+    });
+  }
+
+  // Logs Menu Item (לוגים – תצוגת מחשב בלבד)
+  const logsMenuItem = document.getElementById("logsMenuItem");
+  if (logsMenuItem) {
+    logsMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await createLogsPanel();
     });
   }
 

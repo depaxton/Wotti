@@ -9,6 +9,7 @@ import {
   clearTokens,
   loadCredentials
 } from '../services/googleCalendarAuthService.js';
+import { logError } from '../utils/logger.js';
 
 /**
  * GET /api/google-calendar/auth-url
@@ -24,6 +25,7 @@ export async function getAuthUrlController(req, res) {
     }
     res.json({ ok: true, url: result.url });
   } catch (e) {
+    logError('Google Calendar getAuthUrl', e);
     res.status(500).json({ ok: false, error: e?.message || 'server_error' });
   }
 }
@@ -59,6 +61,7 @@ export async function getStatusController(req, res) {
       connected
     });
   } catch (e) {
+    logError('Google Calendar getStatus', e);
     res.status(500).json({ configured: false, connected: false, error: e?.message });
   }
 }
@@ -72,6 +75,7 @@ export async function disconnectController(req, res) {
     await clearTokens();
     res.json({ ok: true });
   } catch (e) {
+    logError('Google Calendar disconnect', e);
     res.status(500).json({ ok: false, error: e?.message });
   }
 }

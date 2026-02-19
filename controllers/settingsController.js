@@ -1,11 +1,13 @@
 import { loadSettings, saveSettings } from '../services/settingsService.js';
 import { REMINDER_TEMPLATE } from '../config/reminderTemplates.js';
+import { logError } from '../utils/logger.js';
 
 export async function getSettings(req, res) {
   try {
     const settings = await loadSettings();
     res.json(settings);
   } catch (error) {
+    logError('Failed to load settings', error);
     res.status(500).json({ error: 'Failed to load settings' });
   }
 }
@@ -18,6 +20,7 @@ export async function updateSettings(req, res) {
     await saveSettings(newSettings);
     res.json(newSettings);
   } catch (error) {
+    logError('Failed to save settings', error);
     res.status(500).json({ error: 'Failed to save settings' });
   }
 }
@@ -29,6 +32,7 @@ export async function getReminderTemplate(req, res) {
     const template = settings.reminderTemplate || REMINDER_TEMPLATE;
     res.json({ template });
   } catch (error) {
+    logError('Failed to load reminder template', error);
     res.status(500).json({ error: 'Failed to load reminder template' });
   }
 }
@@ -47,6 +51,7 @@ export async function updateReminderTemplate(req, res) {
     
     res.json({ template });
   } catch (error) {
+    logError('Failed to save reminder template', error);
     res.status(500).json({ error: 'Failed to save reminder template' });
   }
 }

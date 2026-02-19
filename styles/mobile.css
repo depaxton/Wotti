@@ -382,6 +382,10 @@
     display: none; /* Hide version on mobile */
   }
 
+  .logs-menu-item {
+    display: none; /* Logs page – desktop only */
+  }
+
   .restart-menu-button {
     display: none; /* Hide restart button on mobile bottom nav */
   }

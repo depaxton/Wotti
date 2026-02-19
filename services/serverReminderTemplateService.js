@@ -4,6 +4,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { REMINDER_TEMPLATE } from '../config/reminderTemplates.js';
+import { logError } from '../utils/logger.js';
 
 const DATA_DIR = 'data';
 const SETTINGS_FILE = path.join(process.cwd(), DATA_DIR, 'settings.json');
@@ -21,6 +22,7 @@ export async function loadReminderTemplate() {
     if (error.code === 'ENOENT') {
       return REMINDER_TEMPLATE;
     }
+    logError('Failed to load reminder template from file', error);
     throw error;
   }
 }

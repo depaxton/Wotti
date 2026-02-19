@@ -10,7 +10,7 @@ export async function getAllRemindersController(req, res) {
     const allReminders = await getAllReminders();
     res.json(allReminders);
   } catch (error) {
-    console.error(error);
+    logError('Failed to load reminders', error);
     res.status(500).json({ error: 'Failed to load reminders' });
   }
 }
@@ -41,7 +41,7 @@ export async function getAllUsersController(req, res) {
     
     res.json(result);
   } catch (error) {
-    console.error(error);
+    logError('Failed to load users', error);
     res.status(500).json({ error: 'Failed to load users' });
   }
 }
@@ -53,6 +53,7 @@ export async function getUserReminders(req, res) {
     // Return empty array if no reminders (user might not exist in reminders.json yet)
     res.json(reminders || []);
   } catch (error) {
+    logError('Failed to load reminders for user', error);
     res.status(500).json({ error: 'Failed to load reminders' });
   }
 }
@@ -123,7 +124,7 @@ export async function saveUserReminders(req, res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.status(200).json(updatedReminders);
   } catch (error) {
-    console.error(error);
+    logError('Failed to save reminders', error);
     res.status(500).json({ error: 'Failed to save reminders' });
   }
 }
@@ -148,7 +149,7 @@ export async function patchUserReminder(req, res) {
     }
     res.json(updated);
   } catch (error) {
-    console.error(error);
+    logError('Failed to update reminder', error);
     res.status(500).json({ error: 'Failed to update reminder' });
   }
 }
@@ -347,7 +348,7 @@ export async function updateUserName(req, res) {
     
     res.json(updatedUser);
   } catch (error) {
-    console.error('Error updating user name:', error);
+    logError('Error updating user name', error);
     if (error.message === 'User not found') {
       return res.status(404).json({ error: 'User not found' });
     }

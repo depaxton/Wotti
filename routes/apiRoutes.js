@@ -16,6 +16,8 @@ import {
   getStatusController,
   disconnectController
 } from "../controllers/googleCalendarController.js";
+import { getLogs, clearLogs } from "../controllers/logsController.js";
+import { logError } from "../utils/logger.js";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -27,12 +29,12 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const router = express.Router();
 
 /**
- * Wraps async route handlers so rejected promises are caught and returned as 500.
- * Keeps route handlers DRY and ensures no unhandled rejections.
+ * Wraps async route handlers so rejected promises are caught, logged to log store, and returned as 500.
  */
 function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch((err) => {
+      logError("API error", err);
       res.status(500).json({ error: err?.message ?? "Internal server error" });
     });
   };
@@ -130,5 +132,9 @@ router.get("/google-calendar/auth-url", getAuthUrlController);
 router.get("/google-calendar/callback", oauthCallbackController);
 router.get("/google-calendar/status", getStatusController);
 router.post("/google-calendar/disconnect", disconnectController);
+
+// Logs (תצוגת לוגים – צד שרת)
+router.get("/logs", getLogs);
+router.delete("/logs", clearLogs);
 
 export default router;

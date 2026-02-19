@@ -79,6 +79,7 @@ export const getStatus = async (req, res) => {
 
     res.json(responseData);
   } catch (error) {
+    logError("Error in getStatus", error);
     const responseData = {
       status: "error",
       ready: false,
