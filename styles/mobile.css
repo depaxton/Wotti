@@ -5,6 +5,11 @@
 
 /* Mobile Breakpoint: 768px and below */
 @media (max-width: 768px) {
+  /* Bottom nav height: reserve space so content is never hidden under it */
+  :root {
+    --mobile-bottom-nav-height: 72px;
+  }
+
   /* ============================================
      MAIN LAYOUT
      ============================================ */
@@ -36,6 +41,8 @@
     border-left: none;
     box-shadow: none;
     transition: transform 0.3s ease;
+    box-sizing: border-box;
+    padding-bottom: var(--mobile-bottom-nav-height);
   }
 
   .contacts-sidebar.hidden {
@@ -89,7 +96,7 @@
 
   .contacts-list {
     padding: 8px;
-    padding-bottom: 80px; /* Space for bottom navigation if needed */
+    padding-bottom: 16px; /* Small breathing room; bottom nav space comes from .contacts-sidebar padding-bottom */
   }
 
   .contact-item {
@@ -140,6 +147,8 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     background-color: var(--color-white);
+    box-sizing: border-box;
+    padding-bottom: var(--mobile-bottom-nav-height);
   }
 
   .chat-area.active {
@@ -198,7 +207,7 @@
     display: none; /* Hide chat panel on mobile when chat is enabled but we want reminders only */
   }
 
-  /* Allow reminder container to shrink and scroll; space at bottom so "רשימת תזכורות" is not hidden behind side menu */
+  /* Allow reminder container to shrink and scroll */
   .chat-area .reminder-panel #reminderContainer,
   .chat-area .reminder-panel-full #reminderContainer {
     min-height: 0;
@@ -206,7 +215,7 @@
 
   .chat-area .reminder-panel .reminder-container,
   .chat-area .reminder-panel-full .reminder-container {
-    padding-bottom: 100px;
+    padding-bottom: 16px; /* breathing room at end of scroll */
     -webkit-overflow-scrolling: touch;
   }
 
@@ -930,6 +939,12 @@
     .side-menu {
       padding-left: max(0px, env(safe-area-inset-left));
       padding-right: max(0px, env(safe-area-inset-right));
+    }
+
+    /* Content areas: reserve space above bottom nav + safe area so nothing is hidden */
+    .contacts-sidebar,
+    .chat-area {
+      padding-bottom: max(var(--mobile-bottom-nav-height), calc(64px + env(safe-area-inset-bottom)));
     }
 
     .side-menu {
