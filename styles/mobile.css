@@ -215,7 +215,7 @@
 
   .chat-area .reminder-panel .reminder-container,
   .chat-area .reminder-panel-full .reminder-container {
-    padding-bottom: 16px; /* breathing room at end of scroll */
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px); /* space above bottom nav so "רשימת תזכורות" is fully visible */
     -webkit-overflow-scrolling: touch;
   }
 
@@ -389,6 +389,7 @@
   
   .reminder-interface {
     padding: 16px;
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -570,6 +571,11 @@
   .reminder-settings-panel.active,
   .reminder-settings-panel-center.active {
     transform: translateX(0);
+  }
+
+  .reminder-settings-panel .reminder-settings-section,
+  .reminder-settings-panel-center .reminder-settings-section {
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + 24px);
   }
 
   .profile-header,
@@ -953,6 +959,12 @@
 
     .chat-input-container {
       padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    /* Reminder scroll areas: extra bottom space so content stays above bottom nav + safe area */
+    .chat-area .reminder-panel .reminder-container,
+    .chat-area .reminder-panel-full .reminder-container {
+      padding-bottom: max(calc(var(--mobile-bottom-nav-height) + 24px), calc(24px + env(safe-area-inset-bottom) + var(--mobile-bottom-nav-height)));
     }
   }
 }
