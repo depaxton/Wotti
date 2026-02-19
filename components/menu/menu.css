@@ -57,6 +57,11 @@
   background-color: var(--overlay-white-15);
 }
 
+/* "בית" – מוצג רק במובייל (בדסקטופ מוסתר) */
+.side-menu .menu-item.mobile-only {
+  display: none;
+}
+
 .menu-item svg {
   flex-shrink: 0;
   width: 20px;

@@ -8,6 +8,7 @@ import { createMarketingDistributionPanel } from '../marketing/MarketingDistribu
 import { createBusinessHoursPanel } from '../businessHours/BusinessHours.js';
 import { createServiceCategoriesPanel } from '../serviceCategories/ServiceCategories.js';
 import { createLogsPanel } from '../logs/LogsPanel.js';
+import { isMobile, showContactsSidebar } from '../../utils/mobileNavigation.js';
 
 /**
  * Initializes the side menu toggle functionality
@@ -58,6 +59,16 @@ export function initSideMenu() {
       appContainer.classList.add("menu-expanded");
     }
   });
+
+  // Home Menu Item (מובייל בלבד – מעבר למסך הראשי: אנשי קשר ותורים)
+  const homeMenuItem = document.getElementById("homeMenuItem");
+  if (homeMenuItem) {
+    homeMenuItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!isMobile()) return;
+      goToHome();
+    });
+  }
 
   // User Profile Menu Item
   const userProfileMenuItem = document.getElementById("userProfileMenuItem");
@@ -142,6 +153,34 @@ export function initSideMenu() {
 
   // Load and display version
   loadVersion();
+}
+
+/**
+ * מעבר למסך הבית (אנשי קשר + תורים) – לשימוש במובייל
+ */
+function goToHome() {
+  showContactsSidebar();
+  const chatArea = document.querySelector(".chat-area");
+  if (chatArea) {
+    const placeholder = document.getElementById("chatPlaceholder");
+    if (!placeholder) {
+      chatArea.innerHTML = `
+        <div class="chat-placeholder" id="chatPlaceholder">
+          <div class="placeholder-content">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+            <p>התזכורות שלך יופיעו כאן</p>
+          </div>
+        </div>
+      `;
+    }
+  }
+  const marketingPanel = document.querySelector(".marketing-panel");
+  if (marketingPanel && marketingPanel.parentNode) {
+    marketingPanel.parentNode.removeChild(marketingPanel);
+  }
 }
 
 /**

@@ -75,17 +75,10 @@ export async function createMarketingDistributionPanel() {
   const header = document.createElement("div");
   header.className = "marketing-header";
   header.innerHTML = `
-    ${isMobileDevice ? `
-      <button type="button" class="panel-back-button" aria-label="חזור">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-        <span>חזרה</span>
-      </button>
-    ` : ""}
     <div class="panel-header-content">
       <h2>הפצה שיווקית</h2>
     </div>
+    ${!isMobileDevice ? `
     <div class="marketing-header-actions">
       <button type="button" class="marketing-close-btn" aria-label="סגור">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -94,6 +87,7 @@ export async function createMarketingDistributionPanel() {
         </svg>
       </button>
     </div>
+    ` : ""}
   `;
 
   const content = document.createElement("div");
@@ -464,7 +458,8 @@ export async function createMarketingDistributionPanel() {
     });
   }
 
-  header.querySelector(".marketing-close-btn").addEventListener("click", closePanel);
+  const closeBtn = header.querySelector(".marketing-close-btn");
+  if (closeBtn) closeBtn.addEventListener("click", closePanel);
   const backBtn = header.querySelector(".panel-back-button");
   if (backBtn) backBtn.addEventListener("click", closePanel);
 
