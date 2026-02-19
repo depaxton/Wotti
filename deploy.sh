@@ -2,7 +2,7 @@
 
 # --- הגדרות ---
 SERVER_IP="187.77.87.208"
-SERVER_PATH="/root" 
+SERVER_PATH="/root/Wotti" 
 
 echo "--- 📦 1. Pushing to GitHub ---"
 git add .

@@ -91,6 +91,59 @@ Then open `http://localhost:8000` in your browser.
 - **Single responsibility**: Each module has one clear purpose
 - **Separation of concerns**: Structure, styling, and logic are separated
 
+## Deployment on VPS
+
+To run Wotti on your VPS (e.g. 187.77.87.208) and pull the app from GitHub:
+
+### First-time setup on the VPS
+
+1. **SSH into the server:**
+   ```bash
+   ssh root@187.77.87.208
+   ```
+
+2. **Download and run the setup script** (installs Node, clones repo, npm install, PM2):
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/depaxton/Wotti/main/scripts/setup-vps.sh -o setup-vps.sh
+   chmod +x setup-vps.sh
+   sudo ./setup-vps.sh
+   ```
+   Or, if you already have the repo cloned locally, copy the script to the server and run it:
+   ```bash
+   scp scripts/setup-vps.sh root@187.77.87.208:~/
+   ssh root@187.77.87.208 "chmod +x ~/setup-vps.sh && ~/setup-vps.sh"
+   ```
+
+3. **Optional – CORS and Gemini on VPS:**  
+   - So the browser can talk to the API from `http://187.77.87.208:5000`, set before starting:
+     ```bash
+     export PUBLIC_URL="http://187.77.87.208:5000"
+     ```
+     (You can add this to `~/.bashrc` or run PM2 with env, e.g. `PUBLIC_URL=... pm2 start ...`.)  
+   - Create `config/gemini-config.json` on the server with your Gemini API key, or set `GEMINI_API_KEY` in the environment.
+
+4. **Open in browser:**  
+   `http://187.77.87.208:5000`
+
+### Updating the app on the VPS
+
+From your **local machine** (after pushing to GitHub), run:
+
+```bash
+./deploy.sh
+```
+
+This will SSH to the VPS, pull the latest code into `/root/Wotti`, and restart the app with PM2.
+
+### Useful PM2 commands on the VPS
+
+- `pm2 status` – see status  
+- `pm2 logs whatsapp-bot` – view logs  
+- `pm2 restart whatsapp-bot` – restart  
+- `pm2 stop whatsapp-bot` / `pm2 start whatsapp-bot` – stop/start  
+
+---
+
 ## Auto-Update System
 
 Wotti includes an automatic update system that allows remote updates to all users. 

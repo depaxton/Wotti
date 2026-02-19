@@ -3,8 +3,12 @@
 
 export const PORT = process.env.PORT || 5000;
 
-// Allowed origins for CORS
-const ALLOWED_ORIGINS = ["http://localhost:5000"];
+// Allowed origins for CORS (add VPS URL or set PUBLIC_URL env, e.g. http://187.77.87.208:5000)
+const DEFAULT_ORIGINS = ["http://localhost:5000"];
+const PUBLIC_URL = process.env.PUBLIC_URL || "";
+const ALLOWED_ORIGINS = PUBLIC_URL
+  ? [...DEFAULT_ORIGINS, PUBLIC_URL.replace(/\/$/, "")]
+  : DEFAULT_ORIGINS;
 
 export const CORS_OPTIONS = {
   origin: function (origin, callback) {
