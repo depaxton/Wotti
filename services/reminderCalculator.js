@@ -183,14 +183,12 @@ export function findClosestPreReminder(reminder, scheduledTimes) {
         continue;
       }
       
-      // Consider pre-reminders that:
-      // 1. Are in the past (missed reminders we can catch up on)
-      // 2. OR are within the next 30 seconds (normal case)
-      // 3. AND are before main time
+      // Only consider pre-reminders that are due NOW (within time window).
+      // Do not send "catch-up" for past pre-reminders (e.g. don't send 3d/1d when meeting is in 1h).
       const windowMs = 30 * 1000; // 30 seconds
       const scheduledMs = scheduledFor.getTime();
       const nowMs = now.getTime();
-      const isInWindow = scheduledMs <= nowMs + windowMs;
+      const isInWindow = scheduledMs >= nowMs - windowMs && scheduledMs <= nowMs + windowMs;
       
       if (isInWindow && scheduledFor < mainTime) {
         // Find the one closest to main time (latest scheduled time)
@@ -276,19 +274,13 @@ export function shouldSendReminder(reminder, scheduledFor, reminderType = 'main'
       return false;
     }
     
-    // For pre-reminders: if main time hasn't passed yet, allow sending if:
-    // 1. The scheduled time is in the past (we're catching up on missed pre-reminder)
-    // 2. OR it's within the next 30 seconds (normal case)
-    // This allows catching up on missed pre-reminders up until main time
+    // For pre-reminders: send only when the scheduled time is due NOW (within window).
+    // Do not send past-due pre-reminders (e.g. if meeting is in 1h, don't send 3d or 1d).
     if (mainScheduledFor && mainScheduledFor > now) {
-      // Main time hasn't passed - can send pre-reminder if:
-      // - scheduled time is in the past (we're catching up) OR
-      // - scheduled time is within 30 seconds (normal case)
-      return scheduledMs <= nowMs + windowMs;
+      return scheduledMs >= (nowMs - windowMs) && scheduledMs <= (nowMs + windowMs);
     }
     
-    // Main time passed or not available - use normal window
-    // (though this case should be caught by the check at the top)
+    // Main time passed or not available - use same strict window
     return scheduledMs >= (nowMs - windowMs) && scheduledMs <= (nowMs + windowMs);
   }
 }
@@ -356,19 +348,25 @@ export function initializeReminderStatus(reminder) {
         continue;
       }
       
-      // If main time has passed, we can skip pre-reminders that also passed
-      // Otherwise, don't skip pre-reminders even if they're in the past
-      // (we want to send the closest one up until main time)
-      if (mainTimePassed && isPast(scheduledFor, 300)) {
+      const preReminderPassed = isPast(scheduledFor, 300); // more than 5 min ago
+      
+      if (mainTimePassed && preReminderPassed) {
         // Main time passed and pre-reminder also passed - skip it
         preReminderStatus[preReminder] = {
           sent: false,
           skipped: true,
           scheduledFor: scheduledFor.toISOString()
         };
+      } else if (!mainTimePassed && preReminderPassed) {
+        // Main time hasn't passed but this pre-reminder time has (e.g. meeting in 1h, but 3d/1d are in the past)
+        // Mark as skipped so we only send the relevant pre-reminder (e.g. 1h)
+        preReminderStatus[preReminder] = {
+          sent: false,
+          skipped: true,
+          scheduledFor: scheduledFor.toISOString()
+        };
       } else {
-        // Main time hasn't passed yet - don't skip pre-reminders
-        // Initialize as not sent (even if in the past)
+        // Pre-reminder is due in the future - will be sent when its time comes
         preReminderStatus[preReminder] = {
           sent: false,
           failed: false,

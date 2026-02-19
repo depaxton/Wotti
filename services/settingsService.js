@@ -22,12 +22,12 @@ export async function loadSettings() {
     return JSON.parse(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      const defaultSettings = { defaultMeetingDuration: 45 };
+      const defaultSettings = { defaultMeetingDuration: 45, chatEnabled: true };
       await saveSettings(defaultSettings);
       return defaultSettings;
     }
     logError(`Failed to load settings: ${error.message}`);
-    return { defaultMeetingDuration: 45 };
+    return { defaultMeetingDuration: 45, chatEnabled: true };
   }
 }
 

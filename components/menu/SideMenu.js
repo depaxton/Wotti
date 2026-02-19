@@ -3,6 +3,10 @@
 import { createReminderSettingsPanel } from '../reminder/ReminderSettings.js';
 import { createMeetingCalendarPanel } from '../meeting/MeetingCalendar.js';
 import { createUserProfilePanel } from '../user/UserProfile.js';
+import { createAISettingsPanel } from '../ai/AISettings.js';
+import { createMarketingDistributionPanel } from '../marketing/MarketingDistributionPanel.js';
+import { createBusinessHoursPanel } from '../businessHours/BusinessHours.js';
+import { createServiceCategoriesPanel } from '../serviceCategories/ServiceCategories.js';
 
 /**
  * Initializes the side menu toggle functionality
@@ -57,81 +61,63 @@ export function initSideMenu() {
   // User Profile Menu Item
   const userProfileMenuItem = document.getElementById("userProfileMenuItem");
   if (userProfileMenuItem) {
-    userProfileMenuItem.addEventListener("click", (e) => {
+    userProfileMenuItem.addEventListener("click", async (e) => {
       e.stopPropagation();
-      createUserProfilePanel();
+      await createUserProfilePanel();
     });
   }
 
   // Reminder Settings Menu Item
   const reminderSettingsMenuItem = document.getElementById("reminderSettingsMenuItem");
   if (reminderSettingsMenuItem) {
-    reminderSettingsMenuItem.addEventListener("click", (e) => {
+    reminderSettingsMenuItem.addEventListener("click", async (e) => {
       e.stopPropagation();
-      createReminderSettingsPanel();
+      await createReminderSettingsPanel();
     });
   }
 
   // Meeting Calendar Menu Item
   const meetingCalendarMenuItem = document.getElementById("meetingCalendarMenuItem");
   if (meetingCalendarMenuItem) {
-    meetingCalendarMenuItem.addEventListener("click", (e) => {
+    meetingCalendarMenuItem.addEventListener("click", async (e) => {
       e.stopPropagation();
-      createMeetingCalendarPanel();
+      await createMeetingCalendarPanel();
     });
   }
 
-
-  // Restart Menu Item
-  const restartMenuItem = document.getElementById("restartMenuItem");
-  if (restartMenuItem) {
-    restartMenuItem.addEventListener("click", async (e) => {
+  // AI Settings Menu Item
+  const aiSettingsMenuItem = document.getElementById("aiSettingsMenuItem");
+  if (aiSettingsMenuItem) {
+    aiSettingsMenuItem.addEventListener("click", async (e) => {
       e.stopPropagation();
-      
-      // Confirm restart
-      const confirmed = confirm("האם אתה בטוח שברצונך להפעיל מחדש את התוכנה?");
-      if (!confirmed) {
-        return;
-      }
+      await createAISettingsPanel();
+    });
+  }
 
-      // Add restarting state
-      restartMenuItem.classList.add("restarting");
-      restartMenuItem.disabled = true;
+  // Marketing Distribution Menu Item (הפצה שיווקית)
+  const marketingDistributionMenuItem = document.getElementById("marketingDistributionMenuItem");
+  if (marketingDistributionMenuItem) {
+    marketingDistributionMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await createMarketingDistributionPanel();
+    });
+  }
 
-      try {
-        // Get API URL
-        const API_URL = window.location.hostname === "localhost" 
-          ? "http://localhost:5000" 
-          : `${window.location.protocol}//${window.location.hostname}:5000`;
+  // Business Hours Menu Item (שעות פעילות עסק)
+  const businessHoursMenuItem = document.getElementById("businessHoursMenuItem");
+  if (businessHoursMenuItem) {
+    businessHoursMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await createBusinessHoursPanel();
+    });
+  }
 
-        // Call restart API
-        const response = await fetch(`${API_URL}/api/restart`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.ok) {
-          // Show message to user
-          alert("התוכנה מופעלת מחדש. הדף יטען מחדש בעוד כמה שניות...");
-          
-          // Wait a bit and then reload the page
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
-        } else {
-          const error = await response.json();
-          alert(`שגיאה בהפעלה מחדש: ${error.error || "שגיאה לא ידועה"}`);
-          restartMenuItem.classList.remove("restarting");
-          restartMenuItem.disabled = false;
-        }
-      } catch (error) {
-        console.error("Error restarting application:", error);
-        alert(`שגיאה בהפעלה מחדש: ${error.message}`);
-        restartMenuItem.classList.remove("restarting");
-        restartMenuItem.disabled = false;
-      }
+  // Service Categories Menu Item (קטגוריות שירות)
+  const serviceCategoriesMenuItem = document.getElementById("serviceCategoriesMenuItem");
+  if (serviceCategoriesMenuItem) {
+    serviceCategoriesMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await createServiceCategoriesPanel();
     });
   }
 

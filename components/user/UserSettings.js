@@ -25,7 +25,7 @@ export function createUserSettings(contact) {
       time: "",
       duration: 45, // will update when global settings load
       type: "one-time",
-      preReminder: ["30m"], // Array of selected pre-reminders: 30m, 1h, 1d
+      preReminder: ["1h", "1d", "3d"], // Array of selected pre-reminders: 30m, 1h, 1d, 3d
     },
     allUsers: {}, // for schedule checking
   };
@@ -251,13 +251,16 @@ export function createUserSettings(contact) {
         <label class="form-label">תזכורות מקדימות</label>
         <div class="checkbox-group">
           <label class="checkbox-option">
-            <input type="checkbox" name="preReminder" value="30m" checked> 30 דקות לפני
+            <input type="checkbox" name="preReminder" value="30m"> חצי שעה לפני
           </label>
           <label class="checkbox-option">
-            <input type="checkbox" name="preReminder" value="1h"> שעה לפני
+            <input type="checkbox" name="preReminder" value="1h" checked> שעה לפני
           </label>
           <label class="checkbox-option">
-            <input type="checkbox" name="preReminder" value="1d"> יום לפני
+            <input type="checkbox" name="preReminder" value="1d" checked> יום לפני
+          </label>
+          <label class="checkbox-option">
+            <input type="checkbox" name="preReminder" value="3d" checked> 3 ימים לפני
           </label>
         </div>
       </div>
@@ -429,11 +432,13 @@ export function createUserSettings(contact) {
       };
       state.userReminders[index] = reminder;
     } else {
-      // Create new reminder
+      // Create new reminder – title as "פגישה - (contact name)" so calendar/display show who it's for
+      const reminderTitle = contact.name ? `פגישה - ${contact.name}` : "פגישה";
       reminder = {
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
         ...state.newReminder,
+        title: reminderTitle,
       };
       state.userReminders.push(reminder);
     }
@@ -512,7 +517,7 @@ export function createUserSettings(contact) {
       state.newReminder.date = null;
       state.newReminder.dateMode = "day-of-week";
       state.newReminder.time = defaultTime;
-      state.newReminder.preReminder = ["30m"];
+      state.newReminder.preReminder = ["1h", "1d", "3d"];
       // Reset date mode selector
       dateModeBtns.forEach((b) => {
         if (b.dataset.mode === "day-of-week") {
@@ -522,7 +527,7 @@ export function createUserSettings(contact) {
         }
       });
       preReminderCheckboxes.forEach((cb) => {
-        cb.checked = cb.value === "30m";
+        cb.checked = ["1h", "1d", "3d"].includes(cb.value);
       });
 
       // Reset edit mode
@@ -1246,9 +1251,10 @@ export function createUserSettings(contact) {
         preReminders.length > 0
           ? preReminders
               .map((pr) => {
-                if (pr === "30m") return "30 דקות לפני";
+                if (pr === "30m") return "חצי שעה לפני";
                 if (pr === "1h") return "שעה לפני";
                 if (pr === "1d") return "יום לפני";
+                if (pr === "3d") return "3 ימים לפני";
                 return pr;
               })
               .join(", ")

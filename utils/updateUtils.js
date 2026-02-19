@@ -242,7 +242,6 @@ export async function restoreFromBackup(backupPath) {
 
 /**
  * Prepares update files in pending directory
- * VBS script will do the actual replacement after app closes
  */
 export async function prepareUpdateFiles(extractedDir, version) {
   try {
@@ -280,28 +279,6 @@ export async function prepareUpdateFiles(extractedDir, version) {
     logError(`Failed to prepare update files`, error);
     throw error;
   }
-}
-
-/**
- * Launches external VBS installer
- */
-export async function launchExternalInstaller() {
-  const vbsPath = path.join(PROJECT_ROOT, "scripts", "install-update.vbs");
-  
-  if (!(await fs.pathExists(vbsPath))) {
-    throw new Error(`VBS installer not found: ${vbsPath}`);
-  }
-  
-  logInfo(`Launching external installer: ${vbsPath}`);
-  
-  const { spawn } = await import("child_process");
-  spawn("wscript.exe", [vbsPath], {
-    detached: true,
-    stdio: "ignore",
-    windowsHide: true,
-  }).unref();
-  
-  logInfo("External installer launched");
 }
 
 /**

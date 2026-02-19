@@ -53,7 +53,6 @@ async function createReleaseZip(version) {
     "UPDATE-PROCESS.md",
     "launch-wotti.bat",
     "launch-wotti.ps1",
-    "launch-wotti.vbs",
     "create-desktop-shortcut.ps1",
   ];
 

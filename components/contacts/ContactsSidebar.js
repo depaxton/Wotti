@@ -2,6 +2,7 @@
 
 import { getAllContacts } from '../../services/contactService.js';
 import { createContactItem } from './ContactItem.js';
+import { loadTodayAppointments, renderAppointmentsList, refreshAppointmentsView } from './AppointmentsSidebar.js';
 
 let filteredContacts = [];
 let searchFilter = '';
@@ -94,4 +95,55 @@ export function initializeContactsSearch() {
       searchInput.blur();
     }
   });
+}
+
+/**
+ * Initialize main sidebar tabs (אנשי קשר | תורים) and appointments sub-tabs.
+ * On mobile, default tab is "תורים".
+ */
+export function initContactsSidebarTabs() {
+  const mainTabs = document.querySelectorAll('.contacts-sidebar-main-tabs .contacts-sidebar-tab');
+  const contactsPanel = document.getElementById('contactsPanel');
+  const appointmentsPanel = document.getElementById('appointmentsPanel');
+  const subTabs = document.querySelectorAll('.appointments-sub-tabs .appointments-sub-tab');
+
+  const isMobile = () => window.innerWidth <= 768;
+
+  const switchToTab = (tabName) => {
+    mainTabs.forEach((t) => {
+      const isActive = t.dataset.tab === tabName;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive);
+    });
+    if (contactsPanel) {
+      contactsPanel.classList.toggle('hidden', tabName !== 'contacts');
+    }
+    if (appointmentsPanel) {
+      appointmentsPanel.classList.toggle('hidden', tabName !== 'appointments');
+    }
+    if (tabName === 'appointments') {
+      refreshAppointmentsView();
+    }
+  };
+
+  mainTabs.forEach((tab) => {
+    tab.addEventListener('click', () => switchToTab(tab.dataset.tab));
+  });
+
+  subTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      subTabs.forEach((t) => {
+        const isActive = t === tab;
+        t.classList.toggle('active', isActive);
+        t.setAttribute('aria-selected', isActive);
+      });
+      loadTodayAppointments().then((list) => {
+        renderAppointmentsList(list, tab.dataset.subtab);
+      });
+    });
+  });
+
+  if (isMobile()) {
+    switchToTab('appointments');
+  }
 }

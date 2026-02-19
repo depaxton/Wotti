@@ -1,0 +1,273 @@
+/* Service Categories Panel - קטגוריות שירות */
+
+.service-categories-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-panel, #f8f9fa);
+  overflow: hidden;
+}
+
+.service-categories-panel-center {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+}
+
+.service-categories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #128C7E 0%, #075E54 100%);
+  color: white;
+  flex-shrink: 0;
+}
+
+.service-categories-header .panel-header-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.service-categories-header h2 {
+  margin: 0 0 6px 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.service-categories-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.close-service-categories-btn,
+.panel-back-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  flex-shrink: 0;
+}
+
+.panel-back-button {
+  width: auto;
+  padding: 0 12px;
+  gap: 6px;
+}
+
+.close-service-categories-btn:hover,
+.panel-back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.service-categories-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.service-categories-list-wrap h3 {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.service-categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.service-categories-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.95rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.service-categories-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.service-categories-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.service-categories-card-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+}
+
+.service-categories-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.service-categories-edit-btn,
+.service-categories-delete-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(18, 140, 126, 0.1);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.service-categories-edit-btn:hover {
+  background: rgba(18, 140, 126, 0.2);
+}
+
+.service-categories-delete-btn {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.service-categories-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+.service-categories-card-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.service-categories-add-wrap {
+  max-width: 520px;
+  margin: 20px auto 0;
+}
+
+.service-categories-add-btn {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #128C7E;
+  background: rgba(18, 140, 126, 0.1);
+  border: 1px solid rgba(18, 140, 126, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.service-categories-add-btn:hover {
+  background: rgba(18, 140, 126, 0.15);
+}
+
+/* Modal */
+.service-categories-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.service-categories-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.service-categories-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  color: #1a1a1a;
+}
+
+.service-categories-form label {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.service-categories-form label span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.service-categories-form input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.service-categories-form input:focus {
+  outline: none;
+  border-color: #128C7E;
+  box-shadow: 0 0 0 2px rgba(18, 140, 126, 0.2);
+}
+
+.service-categories-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.service-categories-modal-cancel,
+.service-categories-modal-save {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.service-categories-modal-cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+}
+
+.service-categories-modal-save {
+  background: linear-gradient(135deg, #128C7E 0%, #075E54 100%);
+  color: white;
+  border: none;
+}
+
+.service-categories-modal-cancel:hover,
+.service-categories-modal-save:hover {
+  opacity: 0.9;
+}

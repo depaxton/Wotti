@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { CORS_OPTIONS } from "./config/serverConfig.js";
 import apiRoutes from "./routes/apiRoutes.js";
+import { logInfo, logError } from "./utils/logger.js";
 
 const app = express();
 
@@ -21,10 +22,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware (skip /api/status to reduce noise)
 app.use((req, res, next) => {
-  // Skip logging for /api/status requests
-  if (req.url !== '/api/status') {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    console.log('Origin:', req.headers.origin);
+  if (req.url !== "/api/status") {
+    logInfo(`${req.method} ${req.url} | Origin: ${req.headers.origin ?? "none"}`);
   }
   next();
 });
@@ -52,9 +51,9 @@ app.use("/api", apiRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({ 
-    error: err.message || 'Internal Server Error' 
+  logError("Request error", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
   });
 });
 

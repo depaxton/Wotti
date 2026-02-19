@@ -6,13 +6,11 @@ import { PORT } from "./config/serverConfig.js";
 import { initializeClient, destroyClient, isClientReady } from "./services/whatsappClient.js";
 import { initStateListener } from "./services/stateService.js";
 import { startScheduler, stopScheduler, initializeReminderStatuses } from "./services/reminderScheduler.js";
+import { startMarketingDistributionScheduler, stopMarketingDistributionScheduler } from "./services/marketingDistributionScheduler.js";
 import { initializeSystemTray, destroySystemTray } from "./services/systemTray.js";
 import { logInfo, logError, logWarn } from "./utils/logger.js";
+import { initGeminiWhatsAppBridge } from "./services/geminiWhatsAppBridge.js";
 import { cleanupAllProcesses } from "./utils/processCleanup.js";
-import { startUpdateChecker, stopUpdateChecker } from "./services/updateService.js";
-import { startFirebaseTasks, stopFirebaseTasks } from "./services/firebaseSyncService.js";
-import { setServerInstance } from "./services/restartService.js";
-
 // הגדר שם תהליך (יופיע ב-Task Manager)
 if (process.env.PROCESS_NAME) {
   try {
@@ -46,22 +44,14 @@ async function main() {
       logInfo(`QR code API available at http://localhost:${PORT}/api/qr`);
     });
 
-    // Store server instance for restart service
-    setServerInstance(server);
-
     // Handle graceful shutdown
     const shutdown = async () => {
       console.log("\n"); // New line for readability
       logInfo("Received termination signal. Shutting down...");
 
-      // Stop scheduler first
+      // Stop schedulers first
       stopScheduler();
-
-      // Stop update checker
-      stopUpdateChecker();
-
-      // Stop Firebase background tasks
-      stopFirebaseTasks();
+      stopMarketingDistributionScheduler();
 
       // Close HTTP server
       if (server) {
@@ -101,13 +91,6 @@ async function main() {
       // Continue anyway - application can run without tray
     });
 
-    // Start update checker (after server is ready)
-    // This will check for updates periodically
-    startUpdateChecker();
-
-    // Start Firebase background tasks (status check + upsert)
-    startFirebaseTasks();
-
     // Initialize WhatsApp client ASYNCHRONOUSLY in the background (non-blocking)
     // This allows Puppeteer to load without blocking the server
     initializeClientInBackground();
@@ -134,6 +117,9 @@ async function initializeClientInBackground() {
     // Initialize state listener for client events
     initStateListener();
 
+    // Initialize Gemini-WhatsApp bridge - גשר אוניברסלי לכל שיחות AI
+    initGeminiWhatsAppBridge();
+
     // Initialize reminder statuses (ensures all reminders have proper status fields)
     await initializeReminderStatuses();
 
@@ -148,6 +134,7 @@ async function initializeClientInBackground() {
           if (ready) {
             logInfo("WhatsApp client is ready. Starting reminder scheduler...");
             startScheduler();
+            startMarketingDistributionScheduler();
           } else {
             attempts++;
             if (attempts < maxAttempts) {

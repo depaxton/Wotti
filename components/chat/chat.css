@@ -46,6 +46,22 @@
   overflow: hidden;
 }
 
+/* Full width reminder panel when chat is disabled */
+.reminder-panel-full {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+}
+
+.reminder-panel-full #reminderContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .chat-panel {
   width: 50%;
   background-color: var(--color-light-grey);

@@ -1,6 +1,6 @@
 // Main application entry point
 
-import { renderContacts, initializeContactsSearch } from "./components/contacts/ContactsSidebar.js";
+import { renderContacts, initializeContactsSearch, initContactsSidebarTabs } from "./components/contacts/ContactsSidebar.js";
 import { initSideMenu } from "./components/menu/SideMenu.js";
 import { createQRCodeDisplay } from "./components/qr/QRCodeDisplay.js";
 import { createLoadingScreen, showLoadingScreen, hideLoadingScreen, completeAndHideLoadingScreen } from "./components/loading/LoadingScreen.js";
@@ -10,6 +10,17 @@ import { initHebrewFontDetection } from "./utils/domUtils.js";
 import { createUserSettings } from "./components/user/UserSettings.js";
 import { initAnalytics, trackAppStarted, trackContactSelected, trackContactsRefreshed, trackQRCodeScanned, setUserInfo } from "./utils/analytics.js";
 import { fetchWithETagSmart } from "./utils/etagCache.js";
+
+// If this window is the OAuth popup returning from Google Calendar, notify opener and close
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('google_calendar') === 'connected' && window.opener) {
+    try {
+      window.opener.postMessage('google_calendar_connected', window.location.origin);
+    } catch (_) {}
+    window.close();
+  }
+})();
 
 // Initialize the app
 document.addEventListener("DOMContentLoaded", () => {
@@ -22,15 +33,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // Track app started
   trackAppStarted();
 
-  // Trigger Firebase user refresh on page load/refresh with retry (phone detection)
-  triggerFirebaseUserRefreshWithRetry();
-  
   renderContacts(); // Render empty/fake contacts initially
   initializeContactsSearch(); // Initialize search functionality
+  initContactsSidebarTabs(); // Tabs: אנשי קשר | תורים (default תורים on mobile)
   initSideMenu();
   initQRCodeDisplay();
   initContactsLoader();
   initHebrewFontDetection(); // Initialize Hebrew font detection
+  
+  // Initialize mobile navigation
+  import("./utils/mobileNavigation.js").then(({ initMobileNavigation }) => {
+    initMobileNavigation();
+  });
 
   // Verify that loadContacts is available
   if (!window.loadContacts) {
@@ -53,7 +67,17 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Import and create chat area
       const { createChatArea } = await import("./components/chat/ChatArea.js");
-      createChatArea(contact);
+      const { showChatArea, addMobileBackButtonToChat } = await import("./utils/mobileNavigation.js");
+      
+      await createChatArea(contact);
+      
+      // Show chat area on mobile and add back button
+      showChatArea();
+      
+      // Add mobile back button after a short delay to ensure chat header is rendered
+      setTimeout(() => {
+        addMobileBackButtonToChat();
+      }, 100);
     }
   });
 });
@@ -76,80 +100,6 @@ async function loadAppVersionForAnalytics() {
   } catch (error) {
     console.warn("Could not load version for analytics:", error);
     window.appVersion = "unknown";
-  }
-}
-
-/**
- * Triggers a one-time Firebase user refresh when the UI loads.
- */
-async function triggerFirebaseUserRefresh() {
-  const API_URL = window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : `${window.location.protocol}//${window.location.hostname}:5000`;
-
-  const getPhoneFromUi = () => {
-    const el = document.querySelector(".detail-value.detail-value-id");
-    if (!el) return null;
-    const val = (el.textContent || "").trim();
-    return val || null;
-  };
-
-  const fetchPhoneFromApi = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/user/info`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return data?.phoneNumber || data?.phone || null;
-    } catch (e) {
-      return null;
-    }
-  };
-
-  let phone = getPhoneFromUi();
-  if (!phone) {
-    phone = await fetchPhoneFromApi();
-  }
-
-  if (!phone) {
-    console.warn("Firebase user refresh skipped: phone not found in UI or API");
-    return;
-  }
-
-  const payload = { phone };
-
-  try {
-    const response = await fetch(`${API_URL}/api/firebase/user/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      console.warn("Firebase user refresh failed:", response.statusText);
-      return;
-    }
-    const data = await response.json();
-    console.log("Firebase user refresh succeeded:", data?.user || data);
-  } catch (error) {
-    console.warn("Firebase user refresh error:", error);
-  }
-}
-
-/**
- * Retries Firebase user refresh a few times to allow UI/API to populate phone.
- */
-async function triggerFirebaseUserRefreshWithRetry(attempts = 3, delayMs = 1000) {
-  for (let i = 0; i < attempts; i++) {
-    const before = performance.now();
-    await triggerFirebaseUserRefresh();
-    const after = performance.now();
-
-    // If the refresh was skipped due to missing phone, try again after delay
-    // We detect this by checking console warnings isn't straightforward, so just delay and retry.
-    if (i < attempts - 1) {
-      const elapsed = after - before;
-      const wait = Math.max(delayMs - elapsed, 200);
-      await new Promise((resolve) => setTimeout(resolve, wait));
-    }
   }
 }
 
@@ -222,6 +172,45 @@ function initQRCodeDisplay() {
   let lastLoadedStatus = null;
   let contactsLoaded = false;
   
+  /**
+   * Updates the WhatsApp status indicator in the header
+   * @param {string} status - Status value from API (ready, authenticated, loading, qr, disconnected, error)
+   */
+  const updateWhatsAppStatusIndicator = (status) => {
+    const indicator = document.getElementById("whatsappStatusIndicator");
+    if (!indicator) return;
+    
+    const statusDot = indicator.querySelector(".status-dot");
+    const statusText = indicator.querySelector(".status-text");
+    
+    if (!statusDot || !statusText) return;
+    
+    // Remove all status classes
+    indicator.classList.remove("status-connected", "status-disconnected", "status-connecting");
+    
+    // Set status based on API response
+    if (status === "ready" || status === "authenticated") {
+      indicator.classList.add("status-connected");
+      statusText.textContent = "מחובר";
+    } else if (status === "loading") {
+      indicator.classList.add("status-connecting");
+      statusText.textContent = "מתחבר";
+    } else if (status === "qr" || status === "disconnected" || status === "error") {
+      indicator.classList.add("status-disconnected");
+      if (status === "qr") {
+        statusText.textContent = "מנותק";
+      } else if (status === "disconnected") {
+        statusText.textContent = "מנותק";
+      } else {
+        statusText.textContent = "מנותק";
+      }
+    } else {
+      // Default/unknown status
+      indicator.classList.add("status-connecting");
+      statusText.textContent = "טוען...";
+    }
+  };
+  
   const checkStatus = async () => {
     try {
       // השתמש ב-ETag כדי לחסוך עיבוד אם הנתונים לא השתנו
@@ -233,6 +222,9 @@ function initQRCodeDisplay() {
       }
       
       const data = result.data;
+
+      // Update WhatsApp status indicator
+      updateWhatsAppStatusIndicator(data.status);
 
       const qrContainer = document.getElementById("qrCodeContainer");
       const loadingContainer = document.getElementById("loadingScreenContainer");
@@ -350,6 +342,8 @@ function initQRCodeDisplay() {
     } catch (error) {
       // Silently fail - server might not be running yet
       console.error("Error checking status:", error);
+      // Update indicator to show disconnected status on error
+      updateWhatsAppStatusIndicator("error");
     }
   };
 
@@ -370,6 +364,24 @@ function initQRCodeDisplay() {
     try {
       // Only check if client is ready and contacts are already loaded
       if (contactsLoaded && window.loadContacts) {
+        // בדוק אם הצ'אט מופעל לפני ביצוע בקשה
+        let chatEnabled = true;
+        try {
+          const settingsResponse = await fetch(`${API_URL}/api/settings`);
+          if (settingsResponse.ok) {
+            const settings = await settingsResponse.json();
+            chatEnabled = settings.chatEnabled !== false; // Default to true
+          }
+        } catch (error) {
+          // אם יש שגיאה בטעינת ההגדרות, נניח שהצ'אט מופעל (default)
+          chatEnabled = true;
+        }
+        
+        // אם הצ'אט מכובה, אל תבצע בקשה לעדכון הודעות
+        if (!chatEnabled) {
+          return;
+        }
+        
         // השתמש ב-ETag כדי לחסוך עיבוד אם אין הודעות חדשות
         const result = await fetchWithETagSmart(`${API_URL}/api/messages/new`);
         
@@ -389,10 +401,10 @@ function initQRCodeDisplay() {
     }
   };
 
-  // Check for new messages every 2 seconds (only after initial load)
-  // Start checking after a delay to ensure initial load is complete
+  // Check for new messages every 5 minutes (only after initial load)
+  const MESSAGE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 300000 = 5 minutes
   setTimeout(() => {
-    const messageCheckInterval = setInterval(checkNewMessages, 2000);
+    const messageCheckInterval = setInterval(checkNewMessages, MESSAGE_CHECK_INTERVAL_MS);
     // Store interval ID for potential cleanup (though we don't need to stop it)
     window.messageCheckInterval = messageCheckInterval;
   }, 5000); // Wait 5 seconds after page load before starting message checks

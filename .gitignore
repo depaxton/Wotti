@@ -5,6 +5,10 @@ node_modules/
 .wwebjs_auth/
 data/
 
+# Google Calendar OAuth (use .example as template)
+config/google-calendar-credentials.json
+config/gemini-config.json
+
 # Update temporary files
 updates/temp/
 updates/backup/

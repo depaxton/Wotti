@@ -9,18 +9,28 @@ const API_URL = window.location.hostname === "localhost"
 /**
  * Creates the reminder settings interface (sliding panel)
  */
-export function createReminderSettingsPanel() {
-  // Cleanup any existing panels
-  const existingPanels = document.querySelectorAll(".reminder-settings-panel, .reminder-settings-overlay");
-  existingPanels.forEach((p) => p.remove());
+export async function createReminderSettingsPanel() {
+  // Get chat area
+  const chatArea = document.querySelector(".chat-area");
+  if (!chatArea) {
+    console.error("Chat area not found");
+    return;
+  }
 
-  // Overlay
-  const overlay = document.createElement("div");
-  overlay.className = "reminder-settings-overlay";
+  // Clear chat area
+  chatArea.innerHTML = "";
 
   // Panel
   const panel = document.createElement("div");
-  panel.className = "reminder-settings-panel";
+  panel.className = "reminder-settings-panel reminder-settings-panel-center";
+  
+  // Handle mobile navigation
+  const { isMobile, showChatArea } = await import("../../utils/mobileNavigation.js");
+  const isMobileDevice = isMobile();
+  
+  if (isMobileDevice) {
+    panel.classList.add("active");
+  }
 
   // State
   let currentTemplate = REMINDER_TEMPLATE;
@@ -28,8 +38,19 @@ export function createReminderSettingsPanel() {
   // Header
   const header = document.createElement("div");
   header.className = "reminder-settings-header";
+  
   header.innerHTML = `
-    <h2>הגדרות תזכורת</h2>
+    ${isMobileDevice ? `
+      <button type="button" class="panel-back-button" aria-label="חזור לאנשי קשר" title="חזור לאנשי קשר">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>חזרה</span>
+      </button>
+    ` : ''}
+    <div class="panel-header-content">
+      <h2>הגדרות תזכורת</h2>
+    </div>
     <button type="button" class="close-reminder-settings-btn" aria-label="סגור">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -37,6 +58,16 @@ export function createReminderSettingsPanel() {
       </svg>
     </button>
   `;
+  
+  // Add back button handler for mobile
+  if (isMobileDevice) {
+    const backButton = header.querySelector('.panel-back-button');
+    if (backButton) {
+      backButton.addEventListener('click', () => {
+        closePanel();
+      });
+    }
+  }
 
   // Template Editor Section
   const editorSection = document.createElement("div");
@@ -279,38 +310,70 @@ export function createReminderSettingsPanel() {
 
   // Close handlers
   function closePanel() {
-    panel.classList.remove("open");
-    overlay.style.opacity = "0";
-    setTimeout(() => {
-      overlay.style.display = "none";
-    }, 300);
+    // On mobile, remove panel from body
+    // On desktop, remove from chat area
+    import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
+      if (isMobile()) {
+        // Remove panel from body
+        if (panel && panel.parentNode) {
+          panel.parentNode.removeChild(panel);
+        }
+        // Show contacts sidebar
+        showContactsSidebar();
+      } else {
+        // Show placeholder instead
+        const chatArea = document.querySelector(".chat-area");
+        if (chatArea) {
+          const chatPlaceholder = document.createElement("div");
+          chatPlaceholder.className = "chat-placeholder";
+          chatPlaceholder.id = "chatPlaceholder";
+          chatPlaceholder.innerHTML = `
+            <div class="placeholder-content">
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+              <p>התזכורות שלך יופיעו כאן</p>
+            </div>
+          `;
+          chatArea.innerHTML = "";
+          chatArea.appendChild(chatPlaceholder);
+        }
+        
+        // Remove panel
+        if (panel && panel.parentNode) {
+          panel.parentNode.removeChild(panel);
+        }
+      }
+    });
   }
 
   header.querySelector(".close-reminder-settings-btn").addEventListener("click", closePanel);
-  overlay.addEventListener("click", closePanel);
 
   // Escape key to close
   const escapeHandler = (e) => {
-    if (e.key === "Escape" && panel.classList.contains("open")) {
+    if (e.key === "Escape") {
       closePanel();
       document.removeEventListener("keydown", escapeHandler);
     }
   };
   document.addEventListener("keydown", escapeHandler);
 
-  // Append to body
-  document.body.appendChild(overlay);
-  document.body.appendChild(panel);
+  // On mobile, append to body for fixed positioning
+  // On desktop, append to chat area
+  if (isMobileDevice) {
+    document.body.appendChild(panel);
+    // Hide contacts sidebar
+    showChatArea();
+  } else {
+    chatArea.appendChild(panel);
+  }
 
   // Load template on open
   loadTemplate();
 
-  // Open panel
+  // Focus editor
   setTimeout(() => {
-    overlay.style.display = "block";
-    overlay.offsetHeight; // Force reflow
-    overlay.style.opacity = "1";
-    panel.classList.add("open");
     templateEditor.focus();
   }, 10);
 

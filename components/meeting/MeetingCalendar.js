@@ -6,7 +6,7 @@ import { getDayName, getWeekStart, formatDateString, getCurrentDate, getDayIndex
  * Creates and returns the meeting calendar panel
  * @returns {HTMLElement} Meeting calendar panel element
  */
-export function createMeetingCalendarPanel() {
+export async function createMeetingCalendarPanel() {
   // Cleanup any existing panels
   const existingPanels = document.querySelectorAll(".meeting-calendar-panel");
   existingPanels.forEach((p) => p.remove());
@@ -24,6 +24,14 @@ export function createMeetingCalendarPanel() {
   // Panel
   const panel = document.createElement("div");
   panel.className = "meeting-calendar-panel";
+  
+  // Handle mobile navigation
+  const { isMobile, showChatArea } = await import("../../utils/mobileNavigation.js");
+  const isMobileDevice = isMobile();
+  
+  if (isMobileDevice) {
+    panel.classList.add("active");
+  }
 
   // State
   let currentView = 'week'; // 'week' or 'month'
@@ -35,15 +43,62 @@ export function createMeetingCalendarPanel() {
     meetings = await loadRemindersFromServer();
     render();
   };
+
+  // רענון אוטומטי כל דקה - כדי שתורים שקבע ה-AI יופיעו אוטומטית
+  const AUTO_REFRESH_INTERVAL_MS = 60000;
+  let autoRefreshTimer = null;
+
+  const startAutoRefresh = () => {
+    if (autoRefreshTimer) return;
+    autoRefreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadAndRender();
+      }
+    }, AUTO_REFRESH_INTERVAL_MS);
+  };
+
+  const stopAutoRefresh = () => {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  };
+
+  // רענון כשחוזרים לטאב/חלון
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      loadAndRender();
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  startAutoRefresh();
   
   loadAndRender();
 
   // Header
   const header = document.createElement("div");
   header.className = "meeting-calendar-header";
+  
   header.innerHTML = `
-    <h2>יומן פגישות</h2>
+    ${isMobileDevice ? `
+      <button type="button" class="panel-back-button" aria-label="חזור לאנשי קשר" title="חזור לאנשי קשר">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>חזרה</span>
+      </button>
+    ` : ''}
+    <div class="panel-header-content">
+      <h2>יומן פגישות</h2>
+    </div>
     <div class="meeting-calendar-header-actions">
+      <div class="google-calendar-actions" id="googleCalendarActions">
+        <button type="button" class="google-calendar-connect-btn" id="googleCalendarConnectBtn" title="התחברות ליומן גוגל">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="18" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+          <span>ממשקות ליומן גוגל</span>
+        </button>
+      </div>
       <button type="button" class="refresh-meeting-calendar-btn" aria-label="רענן" title="רענן פגישות">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10"></polyline>
@@ -59,6 +114,40 @@ export function createMeetingCalendarPanel() {
       </button>
     </div>
   `;
+  
+  // Add back button handler for mobile
+  if (isMobileDevice) {
+    const backButton = header.querySelector('.panel-back-button');
+    if (backButton) {
+      backButton.addEventListener('click', () => {
+        stopAutoRefresh();
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        // Show placeholder instead
+        const chatPlaceholder = document.createElement("div");
+        chatPlaceholder.className = "chat-placeholder";
+        chatPlaceholder.id = "chatPlaceholder";
+        chatPlaceholder.innerHTML = `
+          <div class="placeholder-content">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+            <p>התזכורות שלך יופיעו כאן</p>
+          </div>
+        `;
+        chatArea.innerHTML = "";
+        chatArea.appendChild(chatPlaceholder);
+        
+        // On mobile, ensure chat area is hidden and contacts sidebar is shown
+        import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
+          if (isMobile()) {
+            chatArea.classList.remove("active");
+            showContactsSidebar();
+          }
+        });
+      });
+    }
+  }
 
   // View Tabs
   const tabsContainer = document.createElement("div");
@@ -126,9 +215,9 @@ export function createMeetingCalendarPanel() {
           ${dayMeetings.length === 0 
             ? '<div class="no-meetings">אין פגישות</div>'
             : dayMeetings.map(meeting => `
-                <div class="meeting-item" data-meeting-id="${meeting.id}">
+                <div class="meeting-item ${meeting.categoryId ? 'meeting-item--category' : ''}" data-meeting-id="${meeting.id}">
                   <div class="meeting-time">${meeting.time}</div>
-                  <div class="meeting-title">${meeting.title}</div>
+                  <div class="meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
                   ${meeting.location ? `<div class="meeting-location">${meeting.location}</div>` : ''}
                 </div>
               `).join('')
@@ -308,10 +397,10 @@ export function createMeetingCalendarPanel() {
           ${meetings.length === 0 
             ? '<div class="no-meetings">אין פגישות ביום זה</div>'
             : meetings.map(meeting => `
-                <div class="day-meeting-item">
+                <div class="day-meeting-item ${meeting.categoryId ? 'day-meeting-item--category' : ''}">
                   <div class="day-meeting-time">${meeting.time}</div>
                   <div class="day-meeting-info">
-                    <div class="day-meeting-title">${meeting.title}</div>
+                    <div class="day-meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="day-meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
                     ${meeting.location ? `<div class="day-meeting-location">${meeting.location}</div>` : ''}
                     ${meeting.description ? `<div class="day-meeting-description">${meeting.description}</div>` : ''}
                   </div>
@@ -376,23 +465,112 @@ export function createMeetingCalendarPanel() {
     });
   }
 
+  // Google Calendar: status, connect, disconnect
+  const apiBase = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+  const updateGoogleCalendarUI = async () => {
+    const container = header.querySelector('#googleCalendarActions');
+    if (!container) return;
+    try {
+      const r = await fetch(`${apiBase}/api/google-calendar/status`);
+      const data = await r.json();
+      const connected = data.connected === true;
+      const configured = data.configured === true;
+      if (connected) {
+        container.innerHTML = `
+          <span class="google-calendar-status connected">מחובר ליומן גוגל</span>
+          <button type="button" class="google-calendar-disconnect-btn" id="googleCalendarDisconnectBtn" title="התנתקות">התנתק</button>
+        `;
+        container.querySelector('#googleCalendarDisconnectBtn').addEventListener('click', async () => {
+          try {
+            await fetch(`${apiBase}/api/google-calendar/disconnect`, { method: 'POST' });
+            await updateGoogleCalendarUI();
+          } catch (e) {
+            console.error('Google Calendar disconnect:', e);
+          }
+        });
+      } else {
+        container.innerHTML = `
+          <button type="button" class="google-calendar-connect-btn" id="googleCalendarConnectBtn" title="התחברות ליומן גוגל">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="18" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+            <span>ממשקות ליומן גוגל</span>
+          </button>
+        `;
+        if (!configured) {
+          const btn = container.querySelector('#googleCalendarConnectBtn');
+          if (btn) btn.title = 'לא מוגדר – הוסף קובץ credentials ב-config';
+        }
+        container.querySelector('#googleCalendarConnectBtn').addEventListener('click', async () => {
+          try {
+            const res = await fetch(`${apiBase}/api/google-calendar/auth-url?base_url=${encodeURIComponent(apiBase)}`);
+            const json = await res.json();
+            if (json.url) {
+              const popup = window.open(json.url, 'google_calendar_auth', 'width=520,height=600');
+              const onMessage = (e) => {
+                if (e.data === 'google_calendar_connected') {
+                  window.removeEventListener('message', onMessage);
+                  if (popup && !popup.closed) popup.close();
+                  updateGoogleCalendarUI();
+                }
+              };
+              window.addEventListener('message', onMessage);
+              const closer = setInterval(() => {
+                if (popup && popup.closed) {
+                  clearInterval(closer);
+                  window.removeEventListener('message', onMessage);
+                  updateGoogleCalendarUI();
+                }
+              }, 500);
+            } else {
+              alert(json.error === 'credentials_missing' ? 'לא הוגדר קובץ התחברות. הוסף config/google-calendar-credentials.json (על בסיס הקובץ .example).' : (json.error || 'שגיאה'));
+            }
+          } catch (e) {
+            console.error('Google Calendar auth:', e);
+            alert('שגיאה בפתיחת חלון ההתחברות.');
+          }
+        });
+      }
+    } catch (e) {
+      container.innerHTML = `<button type="button" class="google-calendar-connect-btn" id="googleCalendarConnectBtn" disabled title="שגיאה בטעינת סטטוס"><span>ממשקות ליומן גוגל</span></button>`;
+    }
+  };
+
+  updateGoogleCalendarUI();
+
   // Close button handler
   header.querySelector('.close-meeting-calendar-btn').addEventListener('click', () => {
-    // Show placeholder instead
-    const chatPlaceholder = document.createElement("div");
-    chatPlaceholder.className = "chat-placeholder";
-    chatPlaceholder.id = "chatPlaceholder";
-    chatPlaceholder.innerHTML = `
-      <div class="placeholder-content">
-        <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        <h2>בחר איש קשר כדי להכניס תזכורות</h2>
-        <p>התזכורות שלך יופיעו כאן</p>
-      </div>
-    `;
-    chatArea.innerHTML = "";
-    chatArea.appendChild(chatPlaceholder);
+    stopAutoRefresh();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    // On mobile, remove panel from body
+    // On desktop, remove from chat area
+    import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
+      if (isMobile()) {
+        // Remove panel from body
+        if (panel && panel.parentNode) {
+          panel.parentNode.removeChild(panel);
+        }
+        // Show contacts sidebar
+        showContactsSidebar();
+      } else {
+        // Show placeholder instead
+        const chatPlaceholder = document.createElement("div");
+        chatPlaceholder.className = "chat-placeholder";
+        chatPlaceholder.id = "chatPlaceholder";
+        chatPlaceholder.innerHTML = `
+          <div class="placeholder-content">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+            <p>התזכורות שלך יופיעו כאן</p>
+          </div>
+        `;
+        chatArea.innerHTML = "";
+        chatArea.appendChild(chatPlaceholder);
+      }
+    });
   });
 
   // Assemble panel
@@ -403,8 +581,15 @@ export function createMeetingCalendarPanel() {
   // Initial render (will be updated when reminders load)
   render();
 
-  // Append to chat area
-  chatArea.appendChild(panel);
+  // On mobile, append to body for fixed positioning
+  // On desktop, append to chat area
+  if (isMobileDevice) {
+    document.body.appendChild(panel);
+    // Hide contacts sidebar
+    showChatArea();
+  } else {
+    chatArea.appendChild(panel);
+  }
   
   // Return panel for potential external updates
   return panel;
@@ -480,15 +665,19 @@ async function loadRemindersFromServer() {
           reminderDateOnly.setHours(0, 0, 0, 0);
           
           if (reminderDateOnly >= todayStart && reminderDate <= endDate) {
+            const isAppointment = reminder.title === 'פגישה' || reminder.categoryId;
+            const serviceLabel = reminder.categoryId ? reminder.title : (reminder.title || 'פגישה');
+            const label = isAppointment ? serviceLabel : 'תזכורת';
             meetings.push({
               id: reminder.id,
               date: formatDateString(reminderDate),
               time: reminder.time,
-              title: `${contactName} - תזכורת`,
+              title: `${contactName} - ${label}`,
               location: null,
-              description: reminder.type === 'recurring' ? 'תזכורת קבועה' : 'תזכורת חד פעמית',
+              description: isAppointment ? 'תור שנקבע' : (reminder.type === 'recurring' ? 'תזכורת קבועה' : 'תזכורת חד פעמית'),
               duration: reminder.duration || 60,
-              color: reminder.type === 'recurring' ? '#007025' : '#00a855',
+              categoryId: reminder.categoryId || null,
+              color: isAppointment ? '#1565c0' : (reminder.type === 'recurring' ? '#007025' : '#00a855'),
               phoneNumber: phoneNumber,
               reminder: reminder
             });

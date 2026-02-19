@@ -30,12 +30,27 @@ let currentLimit = 50; // Current limit for loading messages (starts at 50, incr
  * Creates and displays chat area for a contact
  * @param {Object} contact - Contact object
  */
-export function createChatArea(contact) {
+export async function createChatArea(contact) {
   const chatArea = document.querySelector(".chat-area");
   if (!chatArea) return;
 
   // Cleanup previous chat
   cleanupChatHeader();
+
+  // Check if chat is enabled
+  const API_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : `${window.location.protocol}//${window.location.hostname}:5000`;
+  let chatEnabled = true;
+  
+  try {
+    const settingsResponse = await fetch(`${API_URL}/api/settings`);
+    if (settingsResponse.ok) {
+      const settings = await settingsResponse.json();
+      chatEnabled = settings.chatEnabled !== false; // Default to true
+    }
+  } catch (error) {
+    console.error("Error loading chat enabled setting:", error);
+    chatEnabled = true; // Default to true on error
+  }
 
   currentChatId = contact.id;
   messages = [];
@@ -48,87 +63,127 @@ export function createChatArea(contact) {
   shouldFullRender = true;
   currentLimit = 50; // Reset limit for new chat
 
-  chatArea.innerHTML = `
-    <div class="split-container">
-      <div class="split-panel reminder-panel">
-        <div id="reminderContainer"></div>
-      </div>
-      <div class="split-panel chat-panel">
-        <div class="chat-container">
-          <div class="chat-toolbar">
-            <button class="chat-toolbar-btn" id="chatSearchBtn" title="חפש בצ'אט">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-              </svg>
-            </button>
+  if (chatEnabled) {
+    // Show split view with chat and reminders
+    chatArea.innerHTML = `
+      <div class="split-container">
+        <div class="split-panel reminder-panel">
+          <div id="reminderContainer"></div>
+        </div>
+        <div class="split-panel chat-panel">
+          <div class="chat-container">
+            <div class="chat-toolbar">
+              <button class="chat-toolbar-btn" id="chatSearchBtn" title="חפש בצ'אט">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
+              </button>
+            </div>
+            <div id="chatHeaderContainer"></div>
+            <div class="chat-messages" id="chatMessages">
+              <div class="messages-loading">טוען הודעות...</div>
+            </div>
+            <div id="chatInputContainer"></div>
+            <div id="chatSearchContainer"></div>
           </div>
-          <div id="chatHeaderContainer"></div>
-          <div class="chat-messages" id="chatMessages">
-            <div class="messages-loading">טוען הודעות...</div>
-          </div>
-          <div id="chatInputContainer"></div>
-          <div id="chatSearchContainer"></div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 
-  // Create reminder interface in left panel
-  const reminderContainer = document.getElementById("reminderContainer");
-  if (reminderContainer) {
-    const reminderInterface = createReminderInterface(contact);
-    reminderContainer.appendChild(reminderInterface);
-  }
-
-  // Create components
-  const headerContainer = document.getElementById("chatHeaderContainer");
-  const header = createChatHeader(contact);
-  headerContainer.appendChild(header);
-
-  messagesContainer = document.getElementById("chatMessages");
-
-  const inputContainer = document.getElementById("chatInputContainer");
-  const chatInput = createChatInput(currentChatId, () => {
-    // Reload messages after sending
-    setTimeout(() => {
-      loadMessages(false, true, false); // Reload latest messages and scroll to bottom
-    }, 500);
-  });
-  inputContainer.appendChild(chatInput);
-
-  // Create search component
-  const searchContainer = document.getElementById("chatSearchContainer");
-  chatSearch = createChatSearch(currentChatId, (searchMessages, scrollToMessageId) => {
-    if (scrollToMessageId) {
-      // Scroll to specific message
-      scrollToMessage(scrollToMessageId);
-    } else if (searchMessages && searchMessages.length > 0) {
-      // Highlight search results in messages - need full render for highlighting
-      const newSearchQuery = document.getElementById("chatSearchInput")?.value || "";
-      if (newSearchQuery !== searchQuery) {
-        searchQuery = newSearchQuery;
-        shouldFullRender = true; // Force full render to apply search highlighting
-        renderMessages(null);
-      }
+    // Create reminder interface in left panel
+    const reminderContainer = document.getElementById("reminderContainer");
+    if (reminderContainer) {
+      const reminderInterface = await createReminderInterface(contact);
+      reminderContainer.appendChild(reminderInterface);
     }
-  });
-  searchContainer.appendChild(chatSearch);
 
-  // Setup search button
-  const searchBtn = document.getElementById("chatSearchBtn");
-  searchBtn?.addEventListener("click", () => {
-    chatSearch.show();
-  });
+    // Create components
+    const headerContainer = document.getElementById("chatHeaderContainer");
+    const header = createChatHeader(contact);
+    headerContainer.appendChild(header);
 
-  // Load initial messages
-  loadMessages();
+    // Add mobile back button if on mobile
+    const { isMobile, createMobileBackButton, showContactsSidebar } = await import("../../utils/mobileNavigation.js");
+    if (isMobile()) {
+      const backButton = createMobileBackButton(() => {
+        // Clear chat area when going back
+        const chatArea = document.querySelector(".chat-area");
+        if (chatArea) {
+          chatArea.innerHTML = `
+            <div class="chat-placeholder" id="chatPlaceholder">
+              <div class="placeholder-content">
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+                <p>התזכורות שלך יופיעו כאן</p>
+              </div>
+            </div>
+          `;
+        }
+      });
+      header.insertBefore(backButton, header.firstChild);
+    }
 
-  // Setup infinite scroll
-  setupInfiniteScroll();
+    messagesContainer = document.getElementById("chatMessages");
 
-  // Start periodic chat updates (every 2 seconds)
-  startChatUpdates();
+    const inputContainer = document.getElementById("chatInputContainer");
+    const chatInput = createChatInput(currentChatId, () => {
+      // Reload messages after sending
+      setTimeout(() => {
+        loadMessages(false, true, false); // Reload latest messages and scroll to bottom
+      }, 500);
+    });
+    inputContainer.appendChild(chatInput);
+
+    // Create search component
+    const searchContainer = document.getElementById("chatSearchContainer");
+    chatSearch = createChatSearch(currentChatId, (searchMessages, scrollToMessageId) => {
+      if (scrollToMessageId) {
+        // Scroll to specific message
+        scrollToMessage(scrollToMessageId);
+      } else if (searchMessages && searchMessages.length > 0) {
+        // Highlight search results in messages - need full render for highlighting
+        const newSearchQuery = document.getElementById("chatSearchInput")?.value || "";
+        if (newSearchQuery !== searchQuery) {
+          searchQuery = newSearchQuery;
+          shouldFullRender = true; // Force full render to apply search highlighting
+          renderMessages(null);
+        }
+      }
+    });
+    searchContainer.appendChild(chatSearch);
+
+    // Setup search button
+    const searchBtn = document.getElementById("chatSearchBtn");
+    searchBtn?.addEventListener("click", () => {
+      chatSearch.show();
+    });
+
+    // Load initial messages
+    loadMessages();
+
+    // Setup infinite scroll
+    setupInfiniteScroll();
+
+    // Start periodic chat updates (every 2 seconds)
+    startChatUpdates();
+  } else {
+    // Show only reminders (full width)
+    chatArea.innerHTML = `
+      <div class="reminder-panel-full">
+        <div id="reminderContainer"></div>
+      </div>
+    `;
+
+    // Create reminder interface in full width
+    const reminderContainer = document.getElementById("reminderContainer");
+    if (reminderContainer) {
+      const reminderInterface = await createReminderInterface(contact);
+      reminderContainer.appendChild(reminderInterface);
+    }
+  }
 }
 
 /**

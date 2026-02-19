@@ -7,7 +7,6 @@ import qrcode from "qrcode-terminal";
 import { logInfo, logError, logWarn } from "../utils/logger.js";
 import fs from "fs/promises";
 import path from "path";
-import { exec } from "child_process";
 import { fileURLToPath } from "url";
 
 let client = null;
@@ -15,10 +14,10 @@ let currentQRCode = null;
 let qrCodeCallbacks = [];
 let isReinitializing = false;
 let hasNewMessage = false; // Flag to track if a new message was received
+
+/** רשימת מטפלים להודעות נכנסות - כל קוד שרוצה לטפל בהודעות נרשם כאן (למשל Gemini Bridge) */
+const incomingMessageHandlers = [];
 let loadingCheckInterval = null; // משתנה גלובלי לניהול הלופ
-let sleepWakeCheckInterval = null; // בדיקה תקופתית לזיהוי התעוררות ממצב שינה
-let isRestarting = false; // flag למניעת קריאות מרובות ל-restart
-let lastCheckTime = Date.now(); // זמן הבדיקה האחרונה - לזיהוי קפיצות זמן (שינה/התעוררות)
 
 /**
  * Clears the authentication session files
@@ -283,9 +282,6 @@ function registerEventListeners(clientInstance) {
 
     // עצור את הלופ כשהוא מוכן
     stopLoadingDetection();
-
-    // התחל בדיקה תקופתית לזיהוי שינה/התעוררות
-    startSleepWakeCheck();
   });
 
   // Authentication failure event
@@ -406,13 +402,33 @@ function registerEventListeners(clientInstance) {
   });
 
   // Message event - listen for incoming messages
-  clientInstance.on("message", (message) => {
-    // Only track messages that are not from the current user (incoming messages)
-    if (message.fromMe === false) {
-      logInfo(`New incoming message received from ${message.from}`);
-      hasNewMessage = true;
+  clientInstance.on("message", async (message) => {
+    if (message.fromMe === true) return;
+
+    logInfo(`New incoming message received from ${message.from}`);
+    hasNewMessage = true;
+
+    for (const handler of incomingMessageHandlers) {
+      try {
+        if (typeof handler === "function") {
+          await handler(message);
+        }
+      } catch (err) {
+        logError("Error in incoming message handler:", err);
+      }
     }
   });
+}
+
+/**
+ * רישום מטפל להודעות נכנסות מ-WhatsApp
+ * כל מימוש שרוצה לטפל בהודעות (למשל שיחת AI) נרשם כאן
+ * @param {(message: object) => void|Promise<void>} handler - פונקציה שמקבלת אובייקט הודעה
+ */
+export function registerIncomingMessageHandler(handler) {
+  if (typeof handler === "function") {
+    incomingMessageHandlers.push(handler);
+  }
 }
 
 /**
@@ -443,140 +459,9 @@ export async function isClientReady() {
 }
 
 /**
- * Checks if the computer was asleep (by detecting time jump)
- * @returns {boolean} True if time jump detected (computer was asleep), false otherwise
+ * Stops the sleep/wake check (no-op; kept for API compatibility)
  */
-function detectWakeFromSleep() {
-  const currentTime = Date.now();
-  const timeSinceLastCheck = currentTime - lastCheckTime;
-
-  // אם עבר יותר מ-6 שניות מאז הבדיקה האחרונה,
-  // זה אומר שהמחשב היה בשינה והתעורר
-  // (בדיקה רגילה היא כל 10 שניות, אבל אם עברו רק 6+ זה כבר יכול להיות שינה)
-  const sleepThreshold = 20000; // 6 שניות
-
-  // שינוי: >= במקום > כדי לזהות גם 6 שניות בדיוק
-  if (timeSinceLastCheck >= sleepThreshold) {
-    logInfo(`Time jump detected: ${Math.round(timeSinceLastCheck / 1000)} seconds since last check. Computer likely woke from sleep.`);
-    // עדכן את lastCheckTime גם כשמזהה שינה, כדי למנוע זיהוי כפול
-    lastCheckTime = currentTime;
-    return true;
-  }
-
-  lastCheckTime = currentTime;
-  return false;
-}
-
-/**
- * Runs the VBS script to restart the application after sleep/wake
- * The VBS script will kill all processes (Node.js, Chrome/Puppeteer) and restart npm start
- */
-async function runRestartVBS() {
-  return new Promise((resolve, reject) => {
-    try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const projectRoot = path.resolve(__dirname, "..");
-      const vbsPath = path.join(projectRoot, "restart-after-wake.vbs");
-
-      logInfo(`Running VBS restart script: ${vbsPath}`);
-
-      // Run VBS script using cscript (Windows Script Host)
-      // /nologo - don't show logo
-      // /b - batch mode (no user interaction)
-      exec(`cscript //nologo //b "${vbsPath}"`, (error, stdout, stderr) => {
-        if (error) {
-          logError("Error running VBS restart script", error);
-          reject(error);
-          return;
-        }
-
-        if (stdout) {
-          logInfo(`VBS script output: ${stdout}`);
-        }
-
-        if (stderr) {
-          logWarn(`VBS script stderr: ${stderr}`);
-        }
-
-        logInfo("VBS restart script executed successfully");
-        resolve();
-      });
-    } catch (error) {
-      logError("Failed to run VBS restart script", error);
-      reject(error);
-    }
-  });
-}
-
-/**
- * Starts periodic check for wake from sleep detection
- * Checks every 10 seconds if the computer woke from sleep (by detecting time jump)
- * When wake is detected, runs the restart-after-wake.vbs script
- */
-export function startSleepWakeCheck() {
-  // עצור בדיקה קודמת אם קיימת
-  if (sleepWakeCheckInterval) {
-    clearInterval(sleepWakeCheckInterval);
-    sleepWakeCheckInterval = null;
-  }
-
-  // אתחל את זמן הבדיקה האחרונה
-  lastCheckTime = Date.now();
-  logInfo("Sleep/wake check started - will check every 10 seconds");
-
-  // בדיקה כל 10 שניות
-  sleepWakeCheckInterval = setInterval(async () => {
-    if (isReinitializing || isRestarting) {
-      // לוג רק אם זה לא הפעם הראשונה
-      if (isRestarting) {
-        logInfo("Sleep check skipped - restart already in progress");
-      }
-      return; // כבר בתהליך
-    }
-
-    try {
-      // בדוק אם המחשב התעורר משינה (על ידי זיהוי קפיצה בזמן)
-      const wokeFromSleep = detectWakeFromSleep();
-
-      if (wokeFromSleep && !isRestarting) {
-        // המחשב התעורר משינה - הרץ את ה-VBS script
-        logInfo("Detected computer wake from sleep! Running restart-after-wake.vbs...");
-        isRestarting = true;
-
-        // הפעל VBS script שיסגור הכל ויריץ npm start מחדש
-        setTimeout(async () => {
-          try {
-            await runRestartVBS();
-            // VBS script יריץ את npm start, אז התהליך הנוכחי ייסגר
-            // המתן קצת ואז צא מהתהליך
-            setTimeout(() => {
-              logInfo("Exiting current process - VBS script will restart the application");
-              process.exit(0);
-            }, 3000);
-          } catch (restartError) {
-            logError("Failed to run VBS restart script after wake up", restartError);
-            isRestarting = false; // אפשר ניסיון נוסף בעתיד
-            lastCheckTime = Date.now(); // איפוס זמן הבדיקה
-          }
-        }, 2000);
-      }
-    } catch (error) {
-      logError("Error in sleep/wake check", error);
-      // נמשיך לבדוק גם אם יש שגיאה
-    }
-  }, 10000); // כל 10 שניות
-}
-
-/**
- * Stops the sleep/wake check
- */
-export function stopSleepWakeCheck() {
-  if (sleepWakeCheckInterval) {
-    clearInterval(sleepWakeCheckInterval);
-    sleepWakeCheckInterval = null;
-  }
-}
+export function stopSleepWakeCheck() {}
 
 /**
  * Destroys the WhatsApp client instance

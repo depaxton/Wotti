@@ -15,6 +15,43 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+.reminder-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reminder-header-content {
+  flex: 1;
+}
+
+.reminder-back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-dark-grey);
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.reminder-back-button:hover {
+  background: var(--color-light-grey);
+  color: var(--color-green);
+}
+
+.reminder-back-button svg {
+  width: 20px;
+  height: 20px;
+}
+
 .reminder-header h2 {
   font-family: var(--font);
   font-size: 24px;

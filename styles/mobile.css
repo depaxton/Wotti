@@ -1,0 +1,976 @@
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   Dedicated mobile styles for all components
+   ============================================ */
+
+/* Mobile Breakpoint: 768px and below */
+@media (max-width: 768px) {
+  /* ============================================
+     MAIN LAYOUT
+     ============================================ */
+  
+  body {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-container {
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ============================================
+     CONTACTS SIDEBAR - Mobile
+     ============================================ */
+  
+  .contacts-sidebar {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 100;
+    border-left: none;
+    box-shadow: none;
+    transition: transform 0.3s ease;
+  }
+
+  .contacts-sidebar.hidden {
+    transform: translateX(100%);
+  }
+
+  .contacts-header {
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--color-white);
+  }
+
+  .contacts-header h1 {
+    font-size: 28px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .whatsapp-status-indicator {
+    font-size: 10px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .refresh-button {
+    padding: 6px;
+  }
+
+  .contacts-search-container {
+    padding: 10px 16px;
+    position: sticky;
+    top: 73px;
+    z-index: 9;
+    background-color: var(--color-white);
+  }
+
+  .contacts-search-input {
+    padding: 12px 12px 12px 40px;
+    font-size: 14px;
+  }
+
+  .contacts-list {
+    padding: 8px;
+    padding-bottom: 80px; /* Space for bottom navigation if needed */
+  }
+
+  .contact-item {
+    padding: 14px 16px;
+    margin-bottom: 6px;
+    border-radius: 12px;
+    touch-action: manipulation;
+  }
+
+  .contact-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+    margin-left: 12px;
+  }
+
+  .contact-name {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .contact-preview {
+    font-size: 12px;
+  }
+
+  .contact-time {
+    font-size: 10px;
+  }
+
+  .contact-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    min-width: 20px;
+  }
+
+  /* ============================================
+     CHAT AREA - Mobile
+     ============================================ */
+  
+  .chat-area {
+    width: 100%;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    right: 0;
+    margin-left: 0;
+    z-index: 200;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    background-color: var(--color-white);
+  }
+
+  .chat-area.active {
+    transform: translateX(0);
+  }
+
+  .app-container.menu-expanded .chat-area {
+    margin-left: 0;
+  }
+
+  .chat-placeholder {
+    padding: 20px;
+  }
+
+  .placeholder-content h2 {
+    font-size: 24px;
+  }
+
+  .placeholder-content p {
+    font-size: 13px;
+  }
+
+  .placeholder-content svg {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 16px;
+  }
+
+  /* Split Container - Mobile: Stack vertically or hide chat */
+  .split-container {
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .reminder-panel {
+    width: 100%;
+    height: 50%;
+    border-right: none;
+    border-bottom: 1px solid var(--shadow-dark-05);
+  }
+
+  .reminder-panel-full {
+    width: 100%;
+    height: 100%;
+  }
+
+  .chat-panel {
+    width: 100%;
+    height: 50%;
+    display: none; /* Hide chat panel on mobile when chat is enabled but we want reminders only */
+  }
+
+  .chat-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-toolbar {
+    padding: 10px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--color-white);
+  }
+
+  .chat-toolbar-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+    position: sticky;
+    top: 58px;
+    z-index: 9;
+    background-color: var(--color-white);
+  }
+
+  .chat-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  .chat-name {
+    font-size: 17px;
+  }
+
+  .chat-status {
+    font-size: 13px;
+  }
+
+  .chat-messages {
+    padding: 12px;
+    padding-bottom: 80px; /* Space for input */
+  }
+
+  .message-bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+  }
+
+  .message-text {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .message-time {
+    font-size: 11px;
+  }
+
+  .chat-input-container {
+    padding: 10px 12px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--color-white);
+    border-top: 1px solid var(--shadow-dark-05);
+    z-index: 100;
+    box-shadow: 0 -2px 8px var(--shadow-dark-04);
+  }
+
+  .chat-input {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .chat-send-button,
+  .chat-attach-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .chat-search-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 101;
+    box-shadow: 0 -2px 8px var(--shadow-dark-04);
+  }
+
+  /* ============================================
+     SIDE MENU - Mobile
+     ============================================ */
+  
+  .side-menu {
+    width: 100%;
+    height: auto;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    background: var(--gradient-green);
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 8px 0;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px var(--shadow-dark-10);
+    z-index: 1000;
+  }
+
+  .side-menu.expanded {
+    width: 100%;
+  }
+
+  .menu-toggle {
+    display: none; /* Hide toggle on mobile */
+  }
+
+  .menu-items {
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+    flex: 1;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .menu-item {
+    flex-direction: column;
+    padding: 8px 12px;
+    gap: 4px;
+    flex: 1;
+    max-width: 80px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    margin: 0 2px;
+  }
+
+  .menu-item svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .menu-label {
+    opacity: 1;
+    font-size: 11px;
+    text-align: center;
+    margin-top: 2px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .menu-version {
+    display: none; /* Hide version on mobile */
+  }
+
+  .restart-menu-button {
+    display: none; /* Hide restart button on mobile bottom nav */
+  }
+
+  /* ============================================
+     REMINDER COMPONENT - Mobile
+     ============================================ */
+  
+  .reminder-interface {
+    padding: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .reminder-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .reminder-header-content {
+    flex: 1;
+  }
+
+  .reminder-back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--color-dark-grey);
+    font-family: var(--font-hebrew);
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+  }
+
+  .reminder-back-button:hover {
+    background: var(--color-light-grey);
+    color: var(--color-green);
+  }
+
+  .reminder-back-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .reminder-header h2 {
+    font-size: 20px;
+  }
+
+  .days-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .day-card {
+    padding: 12px 8px;
+  }
+
+  .day-name {
+    font-size: 12px;
+  }
+
+  .day-number {
+    font-size: 18px;
+  }
+
+  .reminder-count {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .actions-row {
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .action-button {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+
+  .reminder-form {
+    padding: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .day-reminders-sidebar {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 300;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .day-reminders-sidebar.active {
+    transform: translateX(0);
+  }
+
+  .day-reminders-header {
+    padding: 16px 20px;
+  }
+
+  .day-reminders-header h2 {
+    font-size: 20px;
+  }
+
+  .reminder-item {
+    padding: 14px 16px;
+  }
+
+  .reminder-text {
+    font-size: 15px;
+  }
+
+  .reminder-time {
+    font-size: 13px;
+  }
+
+  /* ============================================
+     USER PROFILE & SETTINGS - Mobile
+     ============================================ */
+  
+  .user-profile-panel,
+  .user-settings-panel,
+  .user-profile-panel-center,
+  .user-settings-panel-center {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 400 !important;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .user-profile-panel.active,
+  .user-settings-panel.active,
+  .user-profile-panel-center.active,
+  .user-settings-panel-center.active {
+    transform: translateX(0);
+  }
+  
+  .reminder-settings-panel,
+  .reminder-settings-panel-center {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 400 !important;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .reminder-settings-panel.active,
+  .reminder-settings-panel-center.active {
+    transform: translateX(0);
+  }
+
+  .profile-header,
+  .settings-header,
+  .user-profile-header,
+  .reminder-settings-header,
+  .meeting-calendar-header,
+  .ai-settings-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .panel-header-content {
+    flex: 1;
+  }
+
+  .panel-back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--color-dark-grey);
+    font-family: var(--font-hebrew);
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+  }
+
+  .panel-back-button:hover {
+    background: var(--color-light-grey);
+    color: var(--color-green);
+  }
+
+  .panel-back-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .profile-header h2,
+  .settings-header h2,
+  .user-profile-header h2,
+  .reminder-settings-header h2,
+  .meeting-calendar-header h2,
+  .ai-settings-header h2 {
+    font-size: 22px;
+  }
+
+  .profile-content,
+  .settings-content {
+    padding: 20px;
+    padding-bottom: 100px; /* Space for bottom nav */
+  }
+
+  .profile-section,
+  .settings-section {
+    margin-bottom: 24px;
+  }
+
+  .profile-section h3,
+  .settings-section h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .profile-info-item,
+  .setting-item {
+    padding: 12px 0;
+  }
+
+  .profile-info-label,
+  .setting-label {
+    font-size: 13px;
+  }
+
+  .profile-info-value,
+  .setting-value {
+    font-size: 15px;
+  }
+
+  .toggle-switch {
+    width: 50px;
+    height: 28px;
+  }
+
+  .toggle-slider:before {
+    width: 22px;
+    height: 22px;
+  }
+
+  .logout-btn {
+    padding: 14px;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  /* ============================================
+     MEETING CALENDAR - Mobile
+     ============================================ */
+  
+  .meeting-calendar-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 400 !important;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .meeting-calendar-panel.active {
+    transform: translateX(0);
+  }
+
+  .meeting-calendar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .meeting-calendar-tabs {
+    padding: 12px 16px;
+  }
+
+  .meeting-tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .meeting-calendar-content {
+    padding: 16px;
+    padding-bottom: 100px;
+  }
+
+  .week-view {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
+  }
+
+  .week-days-container {
+    display: flex;
+    gap: 12px;
+    min-width: max-content;
+  }
+
+  .week-day-card {
+    min-width: 280px;
+    padding: 16px;
+  }
+
+  .week-day-header h3 {
+    font-size: 18px;
+  }
+
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .calendar-cell {
+    padding: 6px;
+    min-height: 40px;
+  }
+
+  .cell-day-number {
+    font-size: 13px;
+  }
+
+  .month-header {
+    padding: 12px 16px;
+  }
+
+  .month-header h3 {
+    font-size: 20px;
+  }
+
+  .month-nav-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .month-meetings-count {
+    font-size: 13px;
+  }
+
+  /* ============================================
+     AI SETTINGS - Mobile
+     ============================================ */
+  
+  .ai-settings-panel,
+  .ai-settings-panel-center {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 400 !important;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .ai-settings-panel.active,
+  .ai-settings-panel-center.active {
+    transform: translateX(0);
+  }
+
+  .ai-settings-header {
+    padding: 16px 20px;
+  }
+
+  .ai-settings-header h2 {
+    font-size: 22px;
+  }
+
+  .ai-settings-content {
+    padding: 20px;
+    padding-bottom: 100px;
+  }
+
+  .ai-status-section,
+  .ai-instructions-section,
+  .ai-mode-section {
+    margin-bottom: 24px;
+  }
+
+  .ai-status-section h3,
+  .ai-instructions-section h3,
+  .ai-mode-section h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  /* ============================================
+     QR CODE & LOADING - Mobile
+     ============================================ */
+  
+  .qr-code-container {
+    padding: 20px;
+  }
+
+  .qr-code-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .qr-code-image {
+    max-width: 280px;
+    max-height: 280px;
+  }
+
+  .qr-code-instructions {
+    font-size: 14px;
+    padding: 16px;
+  }
+
+  .loading-screen-container {
+    padding: 20px;
+  }
+
+  .loading-title {
+    font-size: 20px;
+  }
+
+  .loading-spinner-large {
+    width: 60px;
+    height: 60px;
+  }
+
+  /* ============================================
+     TOAST NOTIFICATIONS - Mobile
+     ============================================ */
+  
+  .toast-container {
+    bottom: 80px; /* Above bottom nav */
+    left: 16px;
+    right: 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .toast {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  /* ============================================
+     UTILITY CLASSES - Mobile
+     ============================================ */
+  
+  .mobile-back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--color-dark-grey);
+    font-family: var(--font-hebrew);
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-bottom: 12px;
+    touch-action: manipulation;
+  }
+
+  .mobile-back-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-close-button {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-light-grey);
+    border: none;
+    border-radius: 50%;
+    color: var(--color-dark-grey);
+    cursor: pointer;
+    z-index: 10;
+    touch-action: manipulation;
+  }
+
+  /* ============================================
+     TOUCH OPTIMIZATIONS
+     ============================================ */
+  
+  button,
+  .contact-item,
+  .menu-item,
+  .day-card,
+  .reminder-item {
+    -webkit-tap-highlight-color: rgba(0, 112, 37, 0.1);
+    touch-action: manipulation;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+
+  /* ============================================
+     SAFE AREA INSETS (iPhone notch support)
+     ============================================ */
+  
+  @supports (padding: max(0px)) {
+    .contacts-sidebar,
+    .chat-area,
+    .side-menu {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+    }
+
+    .side-menu {
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+
+    .chat-input-container {
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ============================================
+   SMALL MOBILE (480px and below)
+   ============================================ */
+@media (max-width: 480px) {
+  .contacts-header h1 {
+    font-size: 24px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .contact-item {
+    padding: 12px 14px;
+  }
+
+  .contact-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .days-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .day-card {
+    padding: 10px 6px;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+  }
+
+  .menu-item {
+    padding: 6px 8px;
+    max-width: 70px;
+  }
+
+  .menu-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .menu-label {
+    font-size: 10px;
+  }
+}
+

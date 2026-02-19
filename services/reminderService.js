@@ -134,6 +134,23 @@ export async function updateReminderStatus(phoneNumber, reminderId, updateFn) {
 }
 
 /**
+ * Patches specific fields on a reminder (e.g. googleCalendarEventId after creating event).
+ * @param {string} phoneNumber - The user's phone number
+ * @param {string} reminderId - The reminder ID
+ * @param {Object} patch - Fields to merge into the reminder (e.g. { googleCalendarEventId: '...' })
+ * @returns {Promise<Object|null>} Updated reminder or null if not found
+ */
+export async function patchReminderFields(phoneNumber, reminderId, patch) {
+  const reminders = await loadReminders();
+  if (!reminders[phoneNumber]) return null;
+  const idx = reminders[phoneNumber].findIndex((r) => r.id === reminderId);
+  if (idx === -1) return null;
+  reminders[phoneNumber][idx] = { ...reminders[phoneNumber][idx], ...patch };
+  await saveReminders(reminders);
+  return reminders[phoneNumber][idx];
+}
+
+/**
  * Finds a reminder by ID across all users
  * @param {string} reminderId - The reminder ID
  * @returns {Promise<{phoneNumber: string, reminder: Object}|null>} User phone and reminder, or null if not found

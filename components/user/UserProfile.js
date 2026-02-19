@@ -11,24 +11,45 @@ const API_URL = window.location.hostname === "localhost"
 /**
  * Creates the user profile panel
  */
-export function createUserProfilePanel() {
-  // Cleanup any existing panels
-  const existingPanels = document.querySelectorAll(".user-profile-panel, .user-profile-overlay");
-  existingPanels.forEach((p) => p.remove());
+export async function createUserProfilePanel() {
+  // Get chat area
+  const chatArea = document.querySelector(".chat-area");
+  if (!chatArea) {
+    console.error("Chat area not found");
+    return;
+  }
 
-  // Overlay
-  const overlay = document.createElement("div");
-  overlay.className = "user-profile-overlay";
+  // Clear chat area
+  chatArea.innerHTML = "";
 
   // Panel
   const panel = document.createElement("div");
-  panel.className = "user-profile-panel";
+  panel.className = "user-profile-panel user-profile-panel-center";
+  
+  // Handle mobile navigation
+  const { isMobile, showChatArea } = await import("../../utils/mobileNavigation.js");
+  const isMobileDevice = isMobile();
+  
+  if (isMobileDevice) {
+    panel.classList.add("active");
+  }
 
   // Header
   const header = document.createElement("div");
   header.className = "user-profile-header";
+  
   header.innerHTML = `
-    <h2>הגדרות פרופיל</h2>
+    ${isMobileDevice ? `
+      <button type="button" class="panel-back-button" aria-label="חזור לאנשי קשר" title="חזור לאנשי קשר">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>חזרה</span>
+      </button>
+    ` : ''}
+    <div class="panel-header-content">
+      <h2>הגדרות פרופיל</h2>
+    </div>
     <button type="button" class="close-user-profile-btn" aria-label="סגור">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -36,6 +57,16 @@ export function createUserProfilePanel() {
       </svg>
     </button>
   `;
+  
+  // Add back button handler for mobile
+  if (isMobileDevice) {
+    const backButton = header.querySelector('.panel-back-button');
+    if (backButton) {
+      backButton.addEventListener('click', () => {
+        closePanel(panel);
+      });
+    }
+  }
 
   // Content
   const content = document.createElement("div");
@@ -50,17 +81,16 @@ export function createUserProfilePanel() {
   // Assemble panel
   panel.appendChild(header);
   panel.appendChild(content);
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
-
-  // Show panel with animation
-  setTimeout(() => {
-    overlay.style.display = "block";
-    setTimeout(() => {
-      overlay.style.opacity = "1";
-      panel.classList.add("open");
-    }, 10);
-  }, 10);
+  
+  // On mobile, append to body for fixed positioning
+  // On desktop, append to chat area
+  if (isMobileDevice) {
+    document.body.appendChild(panel);
+    // Hide contacts sidebar
+    showChatArea();
+  } else {
+    chatArea.appendChild(panel);
+  }
 
   // Load user info
   loadUserInfo(content);
@@ -68,20 +98,13 @@ export function createUserProfilePanel() {
   // Close button
   const closeBtn = header.querySelector(".close-user-profile-btn");
   closeBtn.addEventListener("click", () => {
-    closePanel(overlay, panel);
-  });
-
-  // Close on overlay click
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) {
-      closePanel(overlay, panel);
-    }
+    closePanel(panel);
   });
 
   // Close on Escape key
   const handleEscape = (e) => {
     if (e.key === "Escape") {
-      closePanel(overlay, panel);
+      closePanel(panel);
       document.removeEventListener("keydown", handleEscape);
     }
   };
@@ -178,6 +201,22 @@ function renderUserInfo(contentContainer, userInfo) {
         </div>
       </div>
 
+      <!-- Chat Settings -->
+      <div class="profile-chat-settings">
+        <div class="profile-setting-item">
+          <div class="setting-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>הצג צ'אט</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="chatEnabledToggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Logout Button -->
       <div class="profile-logout-section">
         <button type="button" id="logoutBtn" class="logout-btn">
@@ -191,6 +230,23 @@ function renderUserInfo(contentContainer, userInfo) {
       </div>
     </div>
   `;
+
+  // Load and setup chat enabled toggle
+  const chatEnabledToggle = contentContainer.querySelector("#chatEnabledToggle");
+  if (chatEnabledToggle) {
+    // Load current setting
+    loadChatEnabledSetting(chatEnabledToggle);
+    
+    // Save on change
+    chatEnabledToggle.addEventListener("change", async () => {
+      const enabled = chatEnabledToggle.checked;
+      await saveChatEnabledSetting(enabled);
+      // Reload page to apply changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    });
+  }
 
   // Add logout button handler
   const logoutBtn = contentContainer.querySelector("#logoutBtn");
@@ -249,14 +305,87 @@ function renderUserInfo(contentContainer, userInfo) {
 }
 
 /**
+ * Loads chat enabled setting
+ */
+async function loadChatEnabledSetting(toggleElement) {
+  try {
+    const response = await fetch(`${API_URL}/api/settings`);
+    if (response.ok) {
+      const settings = await response.json();
+      toggleElement.checked = settings.chatEnabled !== false; // Default to true
+    }
+  } catch (error) {
+    console.error("Error loading chat enabled setting:", error);
+    toggleElement.checked = true; // Default to true on error
+  }
+}
+
+/**
+ * Saves chat enabled setting
+ */
+async function saveChatEnabledSetting(enabled) {
+  try {
+    const response = await fetch(`${API_URL}/api/settings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ chatEnabled: enabled }),
+      credentials: "omit",
+      cache: "no-cache",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save setting");
+    }
+
+    toast.success(enabled ? "צ'אט הופעל" : "צ'אט הושבת");
+  } catch (error) {
+    console.error("Error saving chat enabled setting:", error);
+    toast.error("שגיאה בשמירת ההגדרה");
+  }
+}
+
+/**
  * Closes the panel
  */
-function closePanel(overlay, panel) {
-  panel.classList.remove("open");
-  overlay.style.opacity = "0";
-  setTimeout(() => {
-    overlay.style.display = "none";
-    overlay.remove();
-  }, 300);
+function closePanel(panel) {
+  // On mobile, remove panel from body
+  // On desktop, remove from chat area
+  import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
+    if (isMobile()) {
+      // Remove panel from body
+      if (panel && panel.parentNode) {
+        panel.parentNode.removeChild(panel);
+      }
+      // Show contacts sidebar
+      showContactsSidebar();
+    } else {
+      // Show placeholder instead
+      const chatArea = document.querySelector(".chat-area");
+      if (chatArea) {
+        const chatPlaceholder = document.createElement("div");
+        chatPlaceholder.className = "chat-placeholder";
+        chatPlaceholder.id = "chatPlaceholder";
+        chatPlaceholder.innerHTML = `
+          <div class="placeholder-content">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+            <p>התזכורות שלך יופיעו כאן</p>
+          </div>
+        `;
+        chatArea.innerHTML = "";
+        chatArea.appendChild(chatPlaceholder);
+      }
+      
+      // Remove panel
+      if (panel && panel.parentNode) {
+        panel.parentNode.removeChild(panel);
+      }
+    }
+  });
 }
 

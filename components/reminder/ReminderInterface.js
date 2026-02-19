@@ -2,7 +2,7 @@ import { REMINDER_TEMPLATE, DAYS_OF_WEEK } from '../../config/reminderTemplates.
 import { toast } from '../toast/Toast.js';
 import { formatDateHebrew, formatDateMonthDay, getNextDayOfWeekFromToday, getDayName, parseDateString, parseTime, getDayIndex, getNextDayOfWeek, isPast, formatDateString } from '../../utils/dateUtils.js';
 
-export function createReminderInterface(contact) {
+export async function createReminderInterface(contact) {
   const container = document.createElement('div');
   container.className = 'reminder-container';
 
@@ -13,18 +13,60 @@ export function createReminderInterface(contact) {
     selectedDate: null,
     selectedTime: '',
     reminderType: 'one-time',
-    preReminder: ['30m'], // Array of selected pre-reminders: 30m, 1h, 1d
+    preReminder: ['1h', '1d', '3d'], // Array of selected pre-reminders: 30m, 1h, 1d, 3d
     userReminders: [] // Store user's reminders
   };
 
   // --- Header ---
   const header = document.createElement('div');
   header.className = 'reminder-header';
+  
+  // Check if mobile to add back button
+  const { isMobile, showContactsSidebar } = await import('../../utils/mobileNavigation.js');
+  const isMobileDevice = isMobile();
+  
   header.innerHTML = `
-    <h2>תזכורת חדשה</h2>
-    <p>יצירת תזכורת עבור <strong>${contact.name}</strong></p>
+    ${isMobileDevice ? `
+      <button type="button" class="reminder-back-button" aria-label="חזור לאנשי קשר" title="חזור לאנשי קשר">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>חזרה</span>
+      </button>
+    ` : ''}
+    <div class="reminder-header-content">
+      <h2>תזכורת חדשה</h2>
+      <p>יצירת תזכורת עבור <strong>${contact.name}</strong></p>
+    </div>
   `;
   container.appendChild(header);
+  
+  // Add back button handler for mobile
+  if (isMobileDevice) {
+    const backButton = header.querySelector('.reminder-back-button');
+    if (backButton) {
+      backButton.addEventListener('click', () => {
+        const chatArea = document.querySelector('.chat-area');
+        if (chatArea) {
+          // Clear chat area and show placeholder
+          chatArea.innerHTML = `
+            <div class="chat-placeholder" id="chatPlaceholder">
+              <div class="placeholder-content">
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <h2>בחר איש קשר כדי להכניס תזכורות</h2>
+                <p>התזכורות שלך יופיעו כאן</p>
+              </div>
+            </div>
+          `;
+          // Hide chat area and show contacts sidebar
+          chatArea.classList.remove('active');
+          showContactsSidebar();
+        }
+      });
+    }
+  }
 
   // --- Day Selection ---
   const daySection = document.createElement('div');
@@ -393,9 +435,10 @@ export function createReminderInterface(contact) {
   checkboxGroup.className = 'checkbox-group';
   
   const preReminderOptions = [
-    { value: '30m', label: '30 דקות לפני' },
+    { value: '30m', label: 'חצי שעה לפני' },
     { value: '1h', label: 'שעה לפני' },
-    { value: '1d', label: 'יום לפני' }
+    { value: '1d', label: 'יום לפני' },
+    { value: '3d', label: '3 ימים לפני' }
   ];
   
   preReminderOptions.forEach(option => {
@@ -525,7 +568,7 @@ export function createReminderInterface(contact) {
     });
 
     // Set pre-reminders
-    const preReminders = Array.isArray(reminder.preReminder) ? reminder.preReminder : reminder.preReminder ? [reminder.preReminder] : ['30m'];
+    const preReminders = Array.isArray(reminder.preReminder) ? reminder.preReminder : reminder.preReminder ? [reminder.preReminder] : ['1h', '1d', '3d'];
     state.preReminder = preReminders;
     checkboxGroup.querySelectorAll('input[name="preReminder"]').forEach(cb => {
       cb.checked = preReminders.includes(cb.value);
@@ -680,9 +723,10 @@ export function createReminderInterface(contact) {
         preReminders.length > 0
           ? preReminders
               .map((pr) => {
-                if (pr === "30m") return "30 דקות לפני";
+                if (pr === "30m") return "חצי שעה לפני";
                 if (pr === "1h") return "שעה לפני";
                 if (pr === "1d") return "יום לפני";
+                if (pr === "3d") return "3 ימים לפני";
                 return pr;
               })
               .join(", ")
@@ -864,7 +908,8 @@ export function createReminderInterface(contact) {
       };
       state.userReminders[index] = reminder;
     } else {
-      // Create new reminder
+      // Create new reminder – title as "פגישה - (contact name)" so calendar/display show who it's for
+      const reminderTitle = contact.name ? `פגישה - ${contact.name}` : 'פגישה';
       reminder = {
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
@@ -875,6 +920,7 @@ export function createReminderInterface(contact) {
         duration: 45,
         type: state.reminderType,
         preReminder: state.preReminder,
+        title: reminderTitle,
       };
       state.userReminders.push(reminder);
     }
@@ -926,7 +972,7 @@ export function createReminderInterface(contact) {
       state.dateMode = 'day-of-week';
       state.selectedTime = defaultTime;
       state.reminderType = 'one-time';
-      state.preReminder = ['30m'];
+      state.preReminder = ['1h', '1d', '3d'];
       
       dayOfWeekBtn.classList.add('selected');
       specificDateBtn.classList.remove('selected');
@@ -943,7 +989,7 @@ export function createReminderInterface(contact) {
 
       // Reset pre-reminder checkboxes
       checkboxGroup.querySelectorAll('input[name="preReminder"]').forEach(cb => {
-        cb.checked = cb.value === '30m';
+        cb.checked = ['1h', '1d', '3d'].includes(cb.value);
       });
 
       delete saveBtn.dataset.editingId;

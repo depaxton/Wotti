@@ -4,11 +4,18 @@
 import express from "express";
 import { getQr, getStatus, getContacts, getContactsFromJSON, getUserInfoController, logoutController, checkNewMessage } from "../controllers/whatsappController.js";
 import { getSettings, updateSettings, getReminderTemplate, updateReminderTemplate } from "../controllers/settingsController.js";
-import { getUserReminders, saveUserReminders, getAllUsersController, sendReminderManually, getAllRemindersController, updateUserName } from "../controllers/userController.js";
+import { getUserReminders, saveUserReminders, patchUserReminder, getAllUsersController, sendReminderManually, getAllRemindersController, updateUserName } from "../controllers/userController.js";
 import { getMessages, sendMessage, getMessageMedia, deleteMessage, getChatStatus, searchMessages } from "../controllers/chatController.js";
-import { manualUpdateCheck, manualUpdateInstall, getUpdateStatus } from "../services/updateService.js";
-import { checkUserStatus as checkFirebaseUserStatus, refreshFirebaseUser } from "../services/firebaseSyncService.js";
-import { restartApplication } from "../services/restartService.js";
+import * as geminiController from "../controllers/geminiController.js";
+import * as marketingDistribution from "../controllers/marketingDistributionController.js";
+import { getBusinessHours, postBusinessHours } from "../controllers/businessHoursController.js";
+import * as serviceCategoriesController from "../controllers/serviceCategoriesController.js";
+import {
+  getAuthUrlController,
+  oauthCallbackController,
+  getStatusController,
+  disconnectController
+} from "../controllers/googleCalendarController.js";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +25,18 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 const router = express.Router();
+
+/**
+ * Wraps async route handlers so rejected promises are caught and returned as 500.
+ * Keeps route handlers DRY and ensures no unhandled rejections.
+ */
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch((err) => {
+      res.status(500).json({ error: err?.message ?? "Internal server error" });
+    });
+  };
+}
 
 // WhatsApp API endpoints
 router.get("/qr", getQr);
@@ -46,118 +65,70 @@ router.post("/settings/reminder-template", updateReminderTemplate);
 router.get("/users", getAllUsersController);
 router.get("/users/:phone/reminders", getUserReminders);
 router.post("/users/:phone/reminders", saveUserReminders);
+router.patch("/users/:phone/reminders/:id", patchUserReminder);
 router.post("/users/:phone/send-reminder", sendReminderManually);
 router.put("/users/:phone/name", updateUserName);
 router.get("/reminders/all", getAllRemindersController);
 
 // Version API endpoint
-router.get("/version", async (req, res) => {
-  try {
-    const packageJsonPath = path.join(PROJECT_ROOT, "package.json");
-    const packageJson = await fs.readJson(packageJsonPath);
-    res.json({ version: packageJson.version || "unknown" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.get("/version", asyncHandler(async (req, res) => {
+  const packageJsonPath = path.join(PROJECT_ROOT, "package.json");
+  const packageJson = await fs.readJson(packageJsonPath);
+  res.json({ version: packageJson.version || "unknown" });
+}));
 
-// Update API endpoints
-router.get("/update/status", async (req, res) => {
-  try {
-    const status = await getUpdateStatus();
-    res.json(status);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Gemini AI API endpoints
+router.post("/gemini/generate", geminiController.generateText);
+router.post("/gemini/chat", geminiController.chat);
+router.get("/gemini/api-key", geminiController.getApiKeyEndpoint);
+router.post("/gemini/api-key", geminiController.saveApiKey);
+router.delete("/gemini/api-key", geminiController.removeApiKey);
+router.get("/gemini/status", geminiController.getStatus);
+router.get("/gemini/models", geminiController.getModels);
+router.post("/gemini/start-conversation", geminiController.startConversation);
+router.post("/gemini/stop-conversation", geminiController.stopConversation);
+router.get("/gemini/active-conversations", geminiController.getActiveConversations);
+router.post("/gemini/instructions", geminiController.saveInstructions);
+router.get("/gemini/instructions", geminiController.getInstructions);
+router.get("/gemini/mode", geminiController.getMode);
+router.post("/gemini/mode/manual", geminiController.setManualMode);
+router.post("/gemini/mode/auto", geminiController.setAutoMode);
+router.post("/gemini/mode/refresh", geminiController.refreshAutoMode);
+router.get("/gemini/finished-users", geminiController.getFinishedUsers);
+router.delete("/gemini/finished-users/:userId", geminiController.deleteFinishedUser);
+router.get("/gemini/auto-messages", geminiController.getAutoMessages);
+router.post("/gemini/auto-messages", geminiController.saveAutoMessage);
+router.put("/gemini/auto-messages/:id", geminiController.updateAutoMessage);
+router.delete("/gemini/auto-messages/:id", geminiController.deleteAutoMessage);
 
-router.get("/update/check", async (req, res) => {
-  try {
-    const updateInfo = await manualUpdateCheck();
-    if (updateInfo) {
-      res.json({ updateAvailable: true, updateInfo });
-    } else {
-      res.json({ updateAvailable: false });
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Marketing distribution (הפצה שיווקית)
+router.get("/marketing-distribution/messages", marketingDistribution.getMessagesController);
+router.post("/marketing-distribution/messages", marketingDistribution.postMessageController);
+router.put("/marketing-distribution/messages/:id", marketingDistribution.putMessageController);
+router.delete("/marketing-distribution/messages/:id", marketingDistribution.deleteMessageController);
+router.get("/marketing-distribution/to-send", marketingDistribution.getToSendController);
+router.post("/marketing-distribution/to-send", marketingDistribution.postToSendController);
+router.delete("/marketing-distribution/to-send/:phone", marketingDistribution.deleteFromToSendController);
+router.get("/marketing-distribution/sent", marketingDistribution.getSentController);
+router.get("/marketing-distribution/settings", marketingDistribution.getSettingsController);
+router.post("/marketing-distribution/settings", marketingDistribution.postSettingsController);
+router.get("/marketing-distribution/status", marketingDistribution.getStatusController);
+router.post("/marketing-distribution/send-one", marketingDistribution.sendOneController);
 
-router.post("/update/install", async (req, res) => {
-  try {
-    // Get update info first
-    const updateInfo = await manualUpdateCheck();
-    if (!updateInfo) {
-      return res.status(400).json({ error: "No update available" });
-    }
-    
-    // Start update in background (don't wait for completion)
-    manualUpdateInstall(updateInfo).catch((error) => {
-      console.error("Update installation failed:", error);
-    });
-    
-    res.json({ 
-      message: "Update installation started",
-      updateInfo 
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Business hours (שעות פעילות עסק)
+router.get("/business-hours", getBusinessHours);
+router.post("/business-hours", postBusinessHours);
 
-// Firebase helpers
-router.get("/firebase/user/status", async (req, res) => {
-  try {
-    const phone = (req.query.phone || "").trim() || null;
-    const user = await checkFirebaseUserStatus(phone);
-    res.json({ phone: user?.phone || phone || null, user });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Service categories (קטגוריות שירות לקביעת תורים)
+router.get("/service-categories", serviceCategoriesController.getCategories);
+router.post("/service-categories", serviceCategoriesController.postCategory);
+router.put("/service-categories/:id", serviceCategoriesController.putCategory);
+router.delete("/service-categories/:id", serviceCategoriesController.deleteCategoryController);
 
-router.post("/firebase/user/refresh", async (req, res) => {
-  try {
-    const {
-      phone,
-      displayName,
-    } = req.body || {};
-
-    const user = await refreshFirebaseUser({
-      phone,
-      displayName,
-    });
-    if (!user) {
-      return res.status(400).json({ success: false, error: "Missing or invalid phone" });
-    }
-    res.json({ success: true, phone: user.phone || phone || null, user });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Restart API endpoint
-router.post("/restart", async (req, res) => {
-  try {
-    // Send response immediately before restart
-    res.json({ 
-      message: "Restart initiated",
-      status: "restarting"
-    });
-
-    // Start restart in background (don't wait for completion)
-    // Small delay to ensure response is sent
-    setTimeout(async () => {
-      try {
-        await restartApplication();
-      } catch (error) {
-        console.error("Restart failed:", error);
-      }
-    }, 500);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Google Calendar (ממשקות יומן גוגל)
+router.get("/google-calendar/auth-url", getAuthUrlController);
+router.get("/google-calendar/callback", oauthCallbackController);
+router.get("/google-calendar/status", getStatusController);
+router.post("/google-calendar/disconnect", disconnectController);
 
 export default router;

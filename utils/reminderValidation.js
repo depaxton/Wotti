@@ -3,8 +3,19 @@
 
 import { DAYS_OF_WEEK } from '../config/reminderTemplates.js';
 
-const VALID_PRE_REMINDERS = ['30m', '1h', '1d'];
+const VALID_PRE_REMINDERS = ['30m', '1h', '1d', '3d'];
 const VALID_TYPES = ['one-time', 'recurring'];
+
+/**
+ * Normalize duration to a value >= 15 and divisible by 15 (for validation compatibility).
+ * @param {number|undefined} minutes
+ * @returns {number}
+ */
+export function normalizeDuration(minutes) {
+  const n = Number(minutes);
+  if (!Number.isFinite(n) || n < 15) return 15;
+  return Math.max(15, Math.round(n / 15) * 15);
+}
 
 /**
  * Validates a reminder object
@@ -112,13 +123,20 @@ export function normalizeReminder(reminder) {
     date: reminder.date || null, // Support for specific date
     dateMode: reminder.dateMode || (reminder.date ? 'specific-date' : 'day-of-week'), // Track which mode was used
     time: reminder.time || '',
-    duration: reminder.duration ?? 45,
+    duration: normalizeDuration(reminder.duration ?? 45),
     type: reminder.type || 'one-time',
-    preReminder: Array.isArray(reminder.preReminder) ? reminder.preReminder : ['30m'],
+    title: reminder.title ?? null,
+    categoryId: reminder.categoryId ?? null,
+    preReminder: Array.isArray(reminder.preReminder) ? reminder.preReminder : ['1h', '1d', '3d'],
     // Status fields are initialized separately
     preReminderStatus: reminder.preReminderStatus || {},
     mainReminderStatus: reminder.mainReminderStatus || {},
-    recurringStatus: reminder.recurringStatus || {}
+    recurringStatus: reminder.recurringStatus || {},
+    // Google Calendar sync - preserved when present
+    googleCalendarEventId: reminder.googleCalendarEventId ?? null,
+    // Sidebar appointment edit - notes and "moved to past"
+    notes: reminder.notes ?? '',
+    completedAt: reminder.completedAt ?? null
   };
 }
 

@@ -15,7 +15,7 @@ import {
   shouldDeleteReminder,
   findClosestPreReminder
 } from './reminderCalculator.js';
-import { validateReminder, normalizeReminder } from '../utils/reminderValidation.js';
+import { validateReminder, normalizeReminder, normalizeDuration } from '../utils/reminderValidation.js';
 import { logError, logInfo, logWarn } from '../utils/logger.js';
 import { isWithinNext, isPast, getCurrentDate } from '../utils/dateUtils.js';
 
@@ -101,12 +101,72 @@ async function sendReminderMessage(reminder, phoneNumber, userName, reminderType
       date: dateStr
     });
 
-    // Format phone number for WhatsApp
-    const chatId = formatWhatsAppPhone(phoneNumber);
+    // Resolve chat/LID like manual send (avoids "No LID for user" when sending via scheduler)
+    const digitsOnly = String(phoneNumber).replace(/\D/g, '');
+    const chatIdCUs = `${digitsOnly}@c.us`;
+    const chatIdSNet = `${digitsOnly}@s.whatsapp.net`;
 
-    // Send the message
-    await client.sendMessage(chatId, messageText);
-    
+    let resolvedChat = null;
+    let resolvedChatId = null;
+
+    // 1) Prefer finding chat from existing list (uses the id WhatsApp already has, including LID)
+    try {
+      const chats = await client.getChats();
+      const digitsWith972 = digitsOnly.startsWith('972') ? digitsOnly : `972${digitsOnly.replace(/^0/, '')}`;
+      const digitsWithout972 = digitsOnly.replace(/^972/, '') || digitsOnly;
+      for (const chat of chats) {
+        if (chat.isGroup) continue;
+        const idStr = chat.id?._serialized || chat.id?.toString?.() || '';
+        const prefix = idStr.split('@')[0] || '';
+        const prefixDigits = prefix.replace(/\D/g, '');
+        const match = prefixDigits === digitsOnly ||
+          prefixDigits === digitsWith972 ||
+          prefixDigits === digitsWithout972 ||
+          prefix === digitsOnly;
+        if (match) {
+          resolvedChat = chat;
+          resolvedChatId = idStr;
+          break;
+        }
+      }
+    } catch (e) {
+      logError('getChats failed in sendReminderMessage (scheduler):', e?.message || e);
+    }
+
+    // 2) If not in chats, try getContactLidAndPhone (may return LID for @c.us contacts)
+    if (!resolvedChatId && typeof client.getContactLidAndPhone === 'function') {
+      try {
+        const results = await client.getContactLidAndPhone([chatIdCUs]);
+        const first = results?.[0];
+        if (first?.lid) resolvedChatId = first.lid;
+        else if (first?.pn) resolvedChatId = first.pn;
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    if (!resolvedChatId) resolvedChatId = chatIdCUs;
+
+    // Send: use chat object from getChats when available (avoids "No LID" from getChat by id)
+    try {
+      if (resolvedChat) {
+        await resolvedChat.sendMessage(messageText);
+      } else {
+        await client.sendMessage(resolvedChatId, messageText);
+      }
+    } catch (sendErr) {
+      if (sendErr?.message?.includes('No LID') && resolvedChatId === chatIdCUs) {
+        try {
+          await client.sendMessage(chatIdSNet, messageText);
+        } catch (fallbackErr) {
+          logError('Scheduler reminder fallback @s.whatsapp.net failed:', fallbackErr?.message || fallbackErr);
+          throw sendErr;
+        }
+      } else {
+        throw sendErr;
+      }
+    }
+
     logInfo(`Reminder sent successfully: ${reminderType} to ${phoneNumber} (reminder ID: ${reminder.id})`);
     return true;
   } catch (error) {
@@ -212,38 +272,47 @@ async function processRetries() {
       const userName = user?.name || phoneNumber;
       
       for (const reminder of userReminders) {
-        // Validate reminder
-        const validation = validateReminder(reminder);
+        // Validate reminder; if only duration is invalid, normalize and retry
+        let toProcess = reminder;
+        let validation = validateReminder(reminder);
+        if (!validation.valid) {
+          const onlyDurationError = validation.errors.length === 1 &&
+            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+          if (onlyDurationError) {
+            toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
+            validation = validateReminder(toProcess);
+          }
+        }
         if (!validation.valid) {
           logWarn(`Skipping invalid reminder ${reminder.id}: ${validation.errors.join(', ')}`);
           continue;
         }
         
         // Check main reminder for retry
-        if (needsRetry(reminder, 'main')) {
-          const scheduledFor = reminder.mainReminderStatus?.scheduledFor 
-            ? new Date(reminder.mainReminderStatus.scheduledFor)
+        if (needsRetry(toProcess, 'main')) {
+          const scheduledFor = toProcess.mainReminderStatus?.scheduledFor 
+            ? new Date(toProcess.mainReminderStatus.scheduledFor)
             : null;
           
           if (scheduledFor && !isPast(scheduledFor, 30)) {
             retryPromises.push(
-              processReminder(reminder, phoneNumber, userName, 'main', scheduledFor)
+              processReminder(toProcess, phoneNumber, userName, 'main', scheduledFor)
             );
           }
         }
         
         // Check pre-reminders for retry
-        if (Array.isArray(reminder.preReminder)) {
-          for (const preReminder of reminder.preReminder) {
-            if (needsRetry(reminder, preReminder)) {
-              const status = reminder.preReminderStatus?.[preReminder];
+        if (Array.isArray(toProcess.preReminder)) {
+          for (const preReminder of toProcess.preReminder) {
+            if (needsRetry(toProcess, preReminder)) {
+              const status = toProcess.preReminderStatus?.[preReminder];
               const scheduledFor = status?.scheduledFor 
                 ? new Date(status.scheduledFor)
                 : null;
               
               if (scheduledFor && !isPast(scheduledFor, 30)) {
                 retryPromises.push(
-                  processReminder(reminder, phoneNumber, userName, preReminder, scheduledFor)
+                  processReminder(toProcess, phoneNumber, userName, preReminder, scheduledFor)
                 );
               }
             }
@@ -285,24 +354,33 @@ async function schedulerLoop() {
       const userName = user?.name || phoneNumber;
       
       for (const reminder of userReminders) {
-        // Validate reminder
-        const validation = validateReminder(reminder);
+        // Validate reminder; if only duration is invalid, normalize and retry
+        let toProcess = reminder;
+        let validation = validateReminder(reminder);
+        if (!validation.valid) {
+          const onlyDurationError = validation.errors.length === 1 &&
+            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+          if (onlyDurationError) {
+            toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
+            validation = validateReminder(toProcess);
+          }
+        }
         if (!validation.valid) {
           logWarn(`Skipping invalid reminder ${reminder.id}: ${validation.errors.join(', ')}`);
           continue;
         }
         
         // Calculate or get scheduled times
-        let scheduledTimes = calculateAllScheduledTimes(reminder);
+        let scheduledTimes = calculateAllScheduledTimes(toProcess);
         
         if (!scheduledTimes) {
           // If can't calculate, try to initialize status
-          const initialized = initializeReminderStatusCalc(reminder);
+          const initialized = initializeReminderStatusCalc(toProcess);
           scheduledTimes = calculateAllScheduledTimes(initialized);
           
           if (scheduledTimes) {
             // Update reminder with initialized status
-            await updateReminderStatus(phoneNumber, reminder.id, () => initialized);
+            await updateReminderStatus(phoneNumber, toProcess.id, () => initialized);
           } else {
             logWarn(`Could not calculate scheduled times for reminder ${reminder.id}`);
             continue;
@@ -318,32 +396,26 @@ async function schedulerLoop() {
         }
         
         // Check and send pre-reminders
-        if (Array.isArray(reminder.preReminder)) {
+        if (Array.isArray(toProcess.preReminder)) {
           // Find the closest pre-reminder that should be sent
-          // This finds the pre-reminder closest to main time (not yet sent) that we can still send
-          const closestPreReminder = findClosestPreReminder(reminder, scheduledTimes);
+          const closestPreReminder = findClosestPreReminder(toProcess, scheduledTimes);
           
           if (closestPreReminder) {
-            // Send the closest pre-reminder (even if its scheduled time is in the past)
-            // This allows catching up on missed pre-reminders up until main time
             sendPromises.push(
               processReminder(
-                reminder, 
-                phoneNumber, 
-                userName, 
-                closestPreReminder.type, 
+                toProcess,
+                phoneNumber,
+                userName,
+                closestPreReminder.type,
                 closestPreReminder.scheduledFor
               )
             );
           } else {
-            // No closest pre-reminder found (all sent or none in range)
-            // Check for normal pre-reminders using shouldSendReminder (handles both past and future)
-            for (const preReminder of reminder.preReminder) {
+            for (const preReminder of toProcess.preReminder) {
               const scheduledFor = scheduledTimes.preReminders[preReminder];
-              
-              if (scheduledFor && shouldSendReminder(reminder, scheduledFor, preReminder)) {
+              if (scheduledFor && shouldSendReminder(toProcess, scheduledFor, preReminder)) {
                 sendPromises.push(
-                  processReminder(reminder, phoneNumber, userName, preReminder, scheduledFor)
+                  processReminder(toProcess, phoneNumber, userName, preReminder, scheduledFor)
                 );
               }
             }
@@ -351,9 +423,9 @@ async function schedulerLoop() {
         }
         
         // Check and send main reminder
-        if (scheduledTimes.main && shouldSendReminder(reminder, scheduledTimes.main, 'main')) {
+        if (scheduledTimes.main && shouldSendReminder(toProcess, scheduledTimes.main, 'main')) {
           sendPromises.push(
-            processReminder(reminder, phoneNumber, userName, 'main', scheduledTimes.main)
+            processReminder(toProcess, phoneNumber, userName, 'main', scheduledTimes.main)
           );
         }
       }
@@ -386,23 +458,28 @@ export async function initializeReminderStatuses() {
       }
       
       for (const reminder of userReminders) {
-        // Validate reminder
-        const validation = validateReminder(reminder);
+        let toProcess = reminder;
+        let validation = validateReminder(reminder);
+        if (!validation.valid) {
+          const onlyDurationError = validation.errors.length === 1 &&
+            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+          if (onlyDurationError) {
+            toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
+            await updateReminderStatus(phoneNumber, reminder.id, () => toProcess);
+            validation = validateReminder(toProcess);
+            updatedCount++;
+          }
+        }
         if (!validation.valid) {
           logWarn(`Skipping invalid reminder ${reminder.id}: ${validation.errors.join(', ')}`);
           continue;
         }
         
-        // Check if status needs initialization
-        const needsInit = !reminder.mainReminderStatus?.scheduledFor || 
-                         !reminder.preReminderStatus;
-        
+        const needsInit = !toProcess.mainReminderStatus?.scheduledFor ||
+                         !toProcess.preReminderStatus;
         if (needsInit) {
-          // Initialize status
-          const initialized = initializeReminderStatusCalc(reminder);
-          
-          // Update in file
-          await updateReminderStatus(phoneNumber, reminder.id, () => initialized);
+          const initialized = initializeReminderStatusCalc(toProcess);
+          await updateReminderStatus(phoneNumber, toProcess.id, () => initialized);
           updatedCount++;
         }
       }

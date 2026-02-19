@@ -1,5 +1,5 @@
 import { getAllUsers, updateUser } from '../services/userService.js';
-import { getRemindersForUser, updateRemindersForUser, getAllReminders, updateReminderStatus } from '../services/reminderService.js';
+import { getRemindersForUser, updateRemindersForUser, getAllReminders, updateReminderStatus, patchReminderFields } from '../services/reminderService.js';
 
 /**
  * GET /api/reminders/all
@@ -85,11 +85,16 @@ export async function saveUserReminders(req, res) {
 
       // Check if this is a new reminder or updated
       const existing = existingById.get(normalized.id);
-      
+      if (existing?.googleCalendarEventId) {
+        normalized.googleCalendarEventId = existing.googleCalendarEventId;
+      }
+
       // If reminder exists, check if it was updated
       if (existing) {
         const wasUpdated = existing.day !== normalized.day ||
                           existing.time !== normalized.time ||
+                          existing.date !== normalized.date ||
+                          (existing.title || '') !== (normalized.title || '') ||
                           JSON.stringify(existing.preReminder) !== JSON.stringify(normalized.preReminder) ||
                           existing.type !== normalized.type;
         
@@ -97,7 +102,6 @@ export async function saveUserReminders(req, res) {
           // Reset status for updated reminder
           return initializeReminderStatus(normalized);
         } else {
-          // Keep existing status
           return normalized;
         }
       } else {
@@ -107,6 +111,12 @@ export async function saveUserReminders(req, res) {
     });
 
     const updatedReminders = await updateRemindersForUser(phone, processedReminders);
+
+    // Sync to Google Calendar if connected (non-blocking)
+    const { syncUserRemindersToGoogleCalendar } = await import('../services/googleCalendarSyncService.js');
+    syncUserRemindersToGoogleCalendar(phone, existingReminders, updatedReminders).catch((err) => {
+      logError(`Google Calendar sync after save: ${err?.message || err}`);
+    });
     
     // Set explicit headers to prevent any browser interpretation issues
     res.setHeader('Content-Type', 'application/json');
@@ -115,6 +125,31 @@ export async function saveUserReminders(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to save reminders' });
+  }
+}
+
+/**
+ * PATCH /api/users/:phone/reminders/:id
+ * Updates specific fields on a reminder (notes, completedAt for "moved to past")
+ */
+export async function patchUserReminder(req, res) {
+  try {
+    const { phone, id: reminderId } = req.params;
+    const { notes, completedAt } = req.body || {};
+    const patch = {};
+    if (notes !== undefined) patch.notes = String(notes);
+    if (completedAt !== undefined) patch.completedAt = completedAt === true || completedAt === 'true' ? new Date().toISOString() : completedAt || null;
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: 'At least one of notes or completedAt is required' });
+    }
+    const updated = await patchReminderFields(phone, reminderId, patch);
+    if (!updated) {
+      return res.status(404).json({ error: 'Reminder not found' });
+    }
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update reminder' });
   }
 }
 
@@ -198,12 +233,71 @@ export async function sendReminderManually(req, res) {
       date: dateStr
     });
 
-    // Format phone number for WhatsApp
-    let formattedPhone = phone.replace(/\+/g, '');
-    const chatId = `${formattedPhone}@c.us`;
+    // Format phone for matching: digits only (as stored in reminders/users)
+    const digitsOnly = phone.replace(/\D/g, '');
+    const chatIdCUs = `${digitsOnly}@c.us`;
+    const chatIdSNet = `${digitsOnly}@s.whatsapp.net`;
 
-    // Send the message
-    await client.sendMessage(chatId, formattedMessage);
+    let resolvedChat = null;
+    let resolvedChatId = null;
+
+    // 1) Prefer finding chat from existing list (uses the id WhatsApp already has, including LID)
+    try {
+      const chats = await client.getChats();
+      const digitsWith972 = digitsOnly.startsWith('972') ? digitsOnly : `972${digitsOnly.replace(/^0/, '')}`;
+      const digitsWithout972 = digitsOnly.replace(/^972/, '') || digitsOnly;
+      for (const chat of chats) {
+        if (chat.isGroup) continue;
+        const idStr = chat.id?._serialized || chat.id?.toString?.() || '';
+        const prefix = idStr.split('@')[0] || '';
+        const prefixDigits = prefix.replace(/\D/g, '');
+        const match = prefixDigits === digitsOnly ||
+          prefixDigits === digitsWith972 ||
+          prefixDigits === digitsWithout972 ||
+          prefix === digitsOnly;
+        if (match) {
+          resolvedChat = chat;
+          resolvedChatId = idStr;
+          break;
+        }
+      }
+    } catch (e) {
+      logError('getChats failed in sendReminderManually:', e?.message || e);
+    }
+
+    // 2) If not in chats, try getContactLidAndPhone (may return LID for @c.us contacts)
+    if (!resolvedChatId && typeof client.getContactLidAndPhone === 'function') {
+      try {
+        const results = await client.getContactLidAndPhone([chatIdCUs]);
+        const first = results?.[0];
+        if (first?.lid) resolvedChatId = first.lid;
+        else if (first?.pn) resolvedChatId = first.pn;
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    if (!resolvedChatId) resolvedChatId = chatIdCUs;
+
+    // Send: use chat object from getChats when available (avoids "No LID" from getChat by id)
+    try {
+      if (resolvedChat) {
+        await resolvedChat.sendMessage(formattedMessage);
+      } else {
+        await client.sendMessage(resolvedChatId, formattedMessage);
+      }
+    } catch (sendErr) {
+      if (sendErr?.message?.includes('No LID') && resolvedChatId === chatIdCUs) {
+        try {
+          await client.sendMessage(chatIdSNet, formattedMessage);
+        } catch (fallbackErr) {
+          logError('Send reminder fallback @s.whatsapp.net failed:', fallbackErr?.message || fallbackErr);
+          throw sendErr;
+        }
+      } else {
+        throw sendErr;
+      }
+    }
     
     // Mark all pre-reminders as sent to prevent scheduler from sending them
     // This ensures manual send only sends the main reminder, not pre-reminders
