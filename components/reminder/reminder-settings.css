@@ -275,15 +275,6 @@
   cursor: not-allowed;
 }
 
-.btn-reset {
-  background: #f0f0f0;
-  color: #333;
-}
-
-.btn-reset:hover {
-  background: #e0e0e0;
-}
-
 @keyframes spin {
   from {
     transform: rotate(0deg);
