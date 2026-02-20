@@ -111,3 +111,12 @@ export async function getAllUsers() {
   return await loadUsers();
 }
 
+/**
+ * Clears all users from the JSON file (used on logout so the next user's contacts are the only ones saved)
+ * @returns {Promise<void>}
+ */
+export async function clearAllUsers() {
+  await saveUsers({});
+  logInfo('Cleared all users from JSON file (logout)');
+}
+

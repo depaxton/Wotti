@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { getClientState } from "../services/stateService.js";
 import { getClient, isClientReady, getCurrentQRCode, getUserInfo, logout, initializeClient, checkAndResetNewMessage } from "../services/whatsappClient.js";
 import { logError, logInfo } from "../utils/logger.js";
-import { loadUsers, saveUsers, getAllUsers } from "../services/userService.js";
+import { loadUsers, saveUsers, getAllUsers, clearAllUsers } from "../services/userService.js";
 import { handleETag } from "../utils/etagHelper.js";
 
 /**
@@ -332,7 +332,10 @@ export const logoutController = async (req, res) => {
   try {
     logInfo("Logout request received");
     await logout();
-    
+
+    // Clear users.json so only the next connected user's contacts will be saved
+    await clearAllUsers();
+
     // Reinitialize the client after logout to generate new QR code
     logInfo("Reinitializing client after logout...");
     setTimeout(async () => {
