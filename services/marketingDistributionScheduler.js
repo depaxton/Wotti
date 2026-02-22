@@ -59,13 +59,15 @@ async function tick() {
     const ready = await isClientReady();
     if (!ready) return;
 
-    const phone = eligible[0];
+    const entry = eligible[0];
+    const phone = entry.phone;
+    const name = entry.name || "";
     const chatId = phoneToChatId(phone);
     if (!chatId) return;
 
     const msg = pickRandomMessage(messages);
     await client.sendMessage(chatId, msg.text);
-    await addToSent(phone);
+    await addToSent(phone, name);
     await removeFromToSend(phone);
     await incrementSentToday();
     await setLastSentAt(now.toISOString());

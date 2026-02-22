@@ -3,18 +3,21 @@
 
 import { DAYS_OF_WEEK } from '../config/reminderTemplates.js';
 
-const VALID_PRE_REMINDERS = ['30m', '1h', '1d', '3d'];
+const VALID_PRE_REMINDERS = ['30m', '1h', '1d', '3d', '1w'];
+
+/** Default: 1h, 1d, 3d, 1w (30m off by default) */
+export const DEFAULT_PRE_REMINDERS = ['1h', '1d', '3d', '1w'];
 const VALID_TYPES = ['one-time', 'recurring'];
 
 /**
- * Normalize duration to a value >= 15 and divisible by 15 (for validation compatibility).
+ * Normalize duration to an integer >= 1 (free number of minutes, no 15-min step).
  * @param {number|undefined} minutes
  * @returns {number}
  */
 export function normalizeDuration(minutes) {
   const n = Number(minutes);
-  if (!Number.isFinite(n) || n < 15) return 15;
-  return Math.max(15, Math.round(n / 15) * 15);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.max(1, Math.round(n));
 }
 
 /**
@@ -65,10 +68,11 @@ export function validateReminder(reminder) {
     }
   }
   
-  // Validate duration
+  // Validate duration (free number of minutes, no step)
   if (reminder.duration !== undefined) {
-    if (typeof reminder.duration !== 'number' || reminder.duration < 15 || reminder.duration % 15 !== 0) {
-      errors.push('Duration must be a number >= 15 and divisible by 15');
+    const d = Number(reminder.duration);
+    if (!Number.isFinite(d) || d < 1 || Math.round(d) !== d) {
+      errors.push('Duration must be an integer >= 1 (minutes)');
     }
   }
   
@@ -127,7 +131,7 @@ export function normalizeReminder(reminder) {
     type: reminder.type || 'one-time',
     title: reminder.title ?? null,
     categoryId: reminder.categoryId ?? null,
-    preReminder: Array.isArray(reminder.preReminder) ? reminder.preReminder : ['1h', '1d', '3d'],
+    preReminder: Array.isArray(reminder.preReminder) && reminder.preReminder.length > 0 ? reminder.preReminder : DEFAULT_PRE_REMINDERS,
     // Status fields are initialized separately
     preReminderStatus: reminder.preReminderStatus || {},
     mainReminderStatus: reminder.mainReminderStatus || {},
@@ -136,7 +140,9 @@ export function normalizeReminder(reminder) {
     googleCalendarEventId: reminder.googleCalendarEventId ?? null,
     // Sidebar appointment edit - notes and "moved to past"
     notes: reminder.notes ?? '',
-    completedAt: reminder.completedAt ?? null
+    completedAt: reminder.completedAt ?? null,
+    // Manual appointment (no phone): display name for __manual__ user
+    clientName: reminder.clientName ?? ''
   };
 }
 

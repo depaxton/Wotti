@@ -288,18 +288,7 @@ async function processRetries() {
           continue;
         }
         
-        // Check main reminder for retry
-        if (needsRetry(toProcess, 'main')) {
-          const scheduledFor = toProcess.mainReminderStatus?.scheduledFor 
-            ? new Date(toProcess.mainReminderStatus.scheduledFor)
-            : null;
-          
-          if (scheduledFor && !isPast(scheduledFor, 30)) {
-            retryPromises.push(
-              processReminder(toProcess, phoneNumber, userName, 'main', scheduledFor)
-            );
-          }
-        }
+        // No main-reminder send or retry – advance reminders only
         
         // Check pre-reminders for retry
         if (Array.isArray(toProcess.preReminder)) {
@@ -422,12 +411,7 @@ async function schedulerLoop() {
           }
         }
         
-        // Check and send main reminder
-        if (scheduledTimes.main && shouldSendReminder(toProcess, scheduledTimes.main, 'main')) {
-          sendPromises.push(
-            processReminder(toProcess, phoneNumber, userName, 'main', scheduledTimes.main)
-          );
-        }
+        // Do not send reminder at the minute of the meeting – advance reminders only
       }
     }
     

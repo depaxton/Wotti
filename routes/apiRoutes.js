@@ -10,6 +10,7 @@ import * as geminiController from "../controllers/geminiController.js";
 import * as marketingDistribution from "../controllers/marketingDistributionController.js";
 import { getBusinessHours, postBusinessHours } from "../controllers/businessHoursController.js";
 import * as serviceCategoriesController from "../controllers/serviceCategoriesController.js";
+import * as readyMessagesController from "../controllers/readyMessagesController.js";
 import {
   getAuthUrlController,
   oauthCallbackController,
@@ -18,9 +19,12 @@ import {
 } from "../controllers/googleCalendarController.js";
 import { getLogs, clearLogs } from "../controllers/logsController.js";
 import { logError } from "../utils/logger.js";
+import multer from "multer";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,10 +116,12 @@ router.get("/marketing-distribution/to-send", marketingDistribution.getToSendCon
 router.post("/marketing-distribution/to-send", marketingDistribution.postToSendController);
 router.delete("/marketing-distribution/to-send/:phone", marketingDistribution.deleteFromToSendController);
 router.get("/marketing-distribution/sent", marketingDistribution.getSentController);
+router.get("/marketing-distribution/never-send", marketingDistribution.getNeverSendController);
 router.get("/marketing-distribution/settings", marketingDistribution.getSettingsController);
 router.post("/marketing-distribution/settings", marketingDistribution.postSettingsController);
 router.get("/marketing-distribution/status", marketingDistribution.getStatusController);
 router.post("/marketing-distribution/send-one", marketingDistribution.sendOneController);
+router.post("/marketing-distribution/import-excel", upload.single("file"), marketingDistribution.importExcelController);
 
 // Business hours (שעות פעילות עסק)
 router.get("/business-hours", getBusinessHours);
@@ -126,6 +132,14 @@ router.get("/service-categories", serviceCategoriesController.getCategories);
 router.post("/service-categories", serviceCategoriesController.postCategory);
 router.put("/service-categories/:id", serviceCategoriesController.putCategory);
 router.delete("/service-categories/:id", serviceCategoriesController.deleteCategoryController);
+
+// Ready messages (הודעות מוכנות)
+router.get("/ready-messages", readyMessagesController.getMessagesController);
+router.get("/ready-messages/next-index", readyMessagesController.getNextIndexController);
+router.post("/ready-messages", readyMessagesController.postMessageController);
+router.put("/ready-messages/:id", readyMessagesController.putMessageController);
+router.delete("/ready-messages/:id", readyMessagesController.deleteMessageController);
+router.get("/ready-messages/:id/media", readyMessagesController.getMessageMediaController);
 
 // Google Calendar (ממשקות יומן גוגל)
 router.get("/google-calendar/auth-url", getAuthUrlController);

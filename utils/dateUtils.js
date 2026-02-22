@@ -186,8 +186,8 @@ export function addInterval(date, interval) {
     return null;
   }
   
-  // Parse interval: "30m", "1h", "1d"
-  const match = interval.match(/^(\d+)([mhd])$/);
+  // Parse interval: "30m", "1h", "1d", "1w"
+  const match = interval.match(/^(\d+)([mhdw])$/);
   if (!match) {
     return null;
   }
@@ -204,6 +204,9 @@ export function addInterval(date, interval) {
       break;
     case 'd': // days
       result.setDate(result.getDate() - value);
+      break;
+    case 'w': // weeks
+      result.setDate(result.getDate() - value * 7);
       break;
     default:
       return null;

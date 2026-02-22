@@ -13,7 +13,7 @@ export async function createReminderInterface(contact) {
     selectedDate: null,
     selectedTime: '',
     reminderType: 'one-time',
-    preReminder: ['1h', '1d', '3d'], // Array of selected pre-reminders: 30m, 1h, 1d, 3d
+    preReminder: ['1h', '1d', '3d', '1w'], // 1h, 1d, 3d, 1w by default (30m off)
     userReminders: [] // Store user's reminders
   };
 
@@ -438,7 +438,8 @@ export async function createReminderInterface(contact) {
     { value: '30m', label: 'חצי שעה לפני' },
     { value: '1h', label: 'שעה לפני' },
     { value: '1d', label: 'יום לפני' },
-    { value: '3d', label: '3 ימים לפני' }
+    { value: '3d', label: '3 ימים לפני' },
+    { value: '1w', label: 'שבוע לפני' }
   ];
   
   preReminderOptions.forEach(option => {
@@ -568,7 +569,7 @@ export async function createReminderInterface(contact) {
     });
 
     // Set pre-reminders
-    const preReminders = Array.isArray(reminder.preReminder) ? reminder.preReminder : reminder.preReminder ? [reminder.preReminder] : ['1h', '1d', '3d'];
+    const preReminders = Array.isArray(reminder.preReminder) ? reminder.preReminder : reminder.preReminder ? [reminder.preReminder] : ['30m', '1h', '1d', '3d', '1w'];
     state.preReminder = preReminders;
     checkboxGroup.querySelectorAll('input[name="preReminder"]').forEach(cb => {
       cb.checked = preReminders.includes(cb.value);
@@ -727,6 +728,7 @@ export async function createReminderInterface(contact) {
                 if (pr === "1h") return "שעה לפני";
                 if (pr === "1d") return "יום לפני";
                 if (pr === "3d") return "3 ימים לפני";
+                if (pr === "1w") return "שבוע לפני";
                 return pr;
               })
               .join(", ")
@@ -972,7 +974,7 @@ export async function createReminderInterface(contact) {
       state.dateMode = 'day-of-week';
       state.selectedTime = defaultTime;
       state.reminderType = 'one-time';
-      state.preReminder = ['1h', '1d', '3d'];
+      state.preReminder = ['1h', '1d', '3d', '1w'];
       
       dayOfWeekBtn.classList.add('selected');
       specificDateBtn.classList.remove('selected');
@@ -987,9 +989,9 @@ export async function createReminderInterface(contact) {
         }
       });
 
-      // Reset pre-reminder checkboxes
+      // Reset pre-reminder checkboxes – 1h, 1d, 3d, 1w on; 30m off
       checkboxGroup.querySelectorAll('input[name="preReminder"]').forEach(cb => {
-        cb.checked = ['1h', '1d', '3d'].includes(cb.value);
+        cb.checked = ['1h', '1d', '3d', '1w'].includes(cb.value);
       });
 
       delete saveBtn.dataset.editingId;

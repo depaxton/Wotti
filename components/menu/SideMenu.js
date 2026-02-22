@@ -7,6 +7,7 @@ import { createAISettingsPanel } from '../ai/AISettings.js';
 import { createMarketingDistributionPanel } from '../marketing/MarketingDistributionPanel.js';
 import { createBusinessHoursPanel } from '../businessHours/BusinessHours.js';
 import { createServiceCategoriesPanel } from '../serviceCategories/ServiceCategories.js';
+import { createReadyMessagesPanel } from '../readyMessages/ReadyMessagesPanel.js';
 import { createLogsPanel } from '../logs/LogsPanel.js';
 import { isMobile, showContactsSidebar } from '../../utils/mobileNavigation.js';
 
@@ -115,6 +116,15 @@ export function initSideMenu() {
     });
   }
 
+  // Ready Messages Menu Item (הודעות מוכנות)
+  const readyMessagesMenuItem = document.getElementById("readyMessagesMenuItem");
+  if (readyMessagesMenuItem) {
+    readyMessagesMenuItem.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await createReadyMessagesPanel();
+    });
+  }
+
   // Business Hours Menu Item (שעות פעילות עסק)
   const businessHoursMenuItem = document.getElementById("businessHoursMenuItem");
   if (businessHoursMenuItem) {
@@ -181,6 +191,7 @@ function goToHome() {
     ".logs-panel",
     ".business-hours-panel",
     ".service-categories-panel",
+    ".ready-messages-panel",
     ".day-reminders-sidebar",
     ".sliding-panel-overlay",
     ".sliding-panel",

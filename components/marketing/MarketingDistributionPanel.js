@@ -109,16 +109,16 @@ export async function createMarketingDistributionPanel() {
     <h3>הגדרות שליחה</h3>
     <div class="marketing-settings-grid">
       <div class="marketing-form-group">
-        <label>שעת התחלה (0-23)</label>
-        <input type="number" id="mdStartHour" min="0" max="23" value="9" />
+        <label>שעת התחלה</label>
+        <input type="time" id="mdStartHour" step="3600" value="09:00" />
       </div>
       <div class="marketing-form-group">
-        <label>שעת סיום (0-23)</label>
-        <input type="number" id="mdEndHour" min="0" max="23" value="18" />
+        <label>שעת סיום</label>
+        <input type="time" id="mdEndHour" step="3600" value="18:00" />
       </div>
       <div class="marketing-form-group">
-        <label>שעת איפוס יומי (0-23)</label>
-        <input type="number" id="mdResumeHour" min="0" max="23" value="8" />
+        <label>שעת איפוס יומי</label>
+        <input type="time" id="mdResumeHour" step="3600" value="08:00" />
       </div>
       <div class="marketing-form-group">
         <label>מגבלה יומית</label>
@@ -148,21 +148,34 @@ export async function createMarketingDistributionPanel() {
   const messagesListEl = messagesSection.querySelector("#mdMessagesList");
   const messagesCountEl = messagesSection.querySelector("#mdMessagesCount");
 
-  // Two lists
+  // Three lists: to-send, sent, never-send
   const listsSection = document.createElement("div");
   listsSection.className = "marketing-lists-section";
   listsSection.innerHTML = `
     <div class="marketing-list-card">
       <h3>רשימה לשליחה <span class="marketing-list-count" id="mdToSendCount">0</span></h3>
+      <input type="text" id="mdSearchToSend" class="marketing-list-search" placeholder="חיפוש לפי שם או מספר..." aria-label="חיפוש ברשימה לשליחה" />
       <div class="marketing-list-body" id="mdToSendList"></div>
       <div class="marketing-add-to-send">
         <input type="text" id="mdPhoneInput" placeholder="מספר טלפון או כמה מופרדים בפסיק" />
         <button type="button" id="mdAddPhoneBtn">הוסף לרשימה</button>
+        <label class="marketing-excel-upload">
+          <input type="file" id="mdExcelInput" accept=".xlsx,.xls" hidden />
+          <span class="marketing-excel-btn">ייבוא מאקסל</span>
+        </label>
+        <button type="button" id="mdClearToSendBtn" class="marketing-clear-list-btn">נקה רשימה</button>
       </div>
     </div>
     <div class="marketing-list-card">
       <h3>נשלחו <span class="marketing-list-count sent" id="mdSentCount">0</span></h3>
+      <input type="text" id="mdSearchSent" class="marketing-list-search" placeholder="חיפוש לפי שם או מספר..." aria-label="חיפוש ברשימה נשלחו" />
       <div class="marketing-list-body" id="mdSentList"></div>
+    </div>
+    <div class="marketing-list-card marketing-never-send-card">
+      <h3>לעולם לא לשלוח <span class="marketing-list-count never" id="mdNeverSendCount">0</span></h3>
+      <p class="marketing-never-send-desc">מי ששלח הודעה עם המילה &quot;הסרה&quot; – לא יישלחו אליו הודעות.</p>
+      <input type="text" id="mdSearchNeverSend" class="marketing-list-search" placeholder="חיפוש לפי שם או מספר..." aria-label="חיפוש ברשימה לעולם לא לשלוח" />
+      <div class="marketing-list-body" id="mdNeverSendList"></div>
     </div>
   `;
   const toSendListEl = listsSection.querySelector("#mdToSendList");
@@ -179,23 +192,49 @@ export async function createMarketingDistributionPanel() {
   panel.appendChild(header);
   panel.appendChild(content);
 
+  const neverSendListEl = listsSection.querySelector("#mdNeverSendList");
+  const neverSendCountEl = listsSection.querySelector("#mdNeverSendCount");
+  const excelInput = listsSection.querySelector("#mdExcelInput");
+
   let state = {
     messages: [],
     toSend: [],
     sent: [],
+    neverSend: [],
     settings: {},
   };
 
   async function loadStatus() {
     const data = await apiGet("/status");
     state.settings = data.settings || {};
-    state.toSend = (await apiGet("/to-send")).phones || [];
+    const toSendRes = await apiGet("/to-send");
+    state.toSend = (toSendRes.items || toSendRes.phones || []).map((e) =>
+      typeof e === "object" && e && e.phone != null ? { phone: e.phone, name: e.name != null ? String(e.name) : "" } : { phone: String(e), name: "" }
+    );
     state.sent = (await apiGet("/sent")).sent || [];
+    const neverRes = await apiGet("/never-send");
+    state.neverSend = (neverRes.items || neverRes.phones || []).map((e) =>
+      typeof e === "object" && e && e.phone != null ? { phone: e.phone, name: e.name != null ? String(e.name) : "" } : { phone: String(e), name: "" }
+    );
     state.messages = (await apiGet("/messages")).messages || [];
     toSendCountEl.textContent = data.eligibleToSendCount ?? state.toSend.length;
     sentCountEl.textContent = data.sentCount ?? state.sent.length;
+    neverSendCountEl.textContent = state.neverSend.length;
     messagesCountEl.textContent = state.messages.length;
     return data;
+  }
+
+  function hourToTimeValue(hour) {
+    const h = Number(hour);
+    if (Number.isNaN(h) || h < 0 || h > 23) return "09:00";
+    return `${String(h).padStart(2, "0")}:00`;
+  }
+
+  function timeValueToHour(value) {
+    if (!value || typeof value !== "string") return 9;
+    const part = value.trim().split(":")[0];
+    const h = parseInt(part, 10);
+    return Number.isNaN(h) ? 9 : Math.max(0, Math.min(23, h));
   }
 
   function renderSettings() {
@@ -205,9 +244,9 @@ export async function createMarketingDistributionPanel() {
       const el = get(id);
       if (el) el.value = val;
     };
-    set("mdStartHour", s.startHour ?? 9);
-    set("mdEndHour", s.endHour ?? 18);
-    set("mdResumeHour", s.resumeHour ?? 8);
+    set("mdStartHour", hourToTimeValue(s.startHour ?? 9));
+    set("mdEndHour", hourToTimeValue(s.endHour ?? 18));
+    set("mdResumeHour", hourToTimeValue(s.resumeHour ?? 8));
     set("mdDailyLimit", s.dailyLimit ?? 50);
     set("mdDelayMinutes", s.delayMinutes ?? 5);
     toggleEl.classList.toggle("on", !!s.enabled);
@@ -245,15 +284,34 @@ export async function createMarketingDistributionPanel() {
     });
   }
 
+  function matchesSearch(entry, query) {
+    if (!query || typeof query !== "string") return true;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const phone = (entry.phone != null ? String(entry.phone) : "").toLowerCase();
+    const name = (entry.name != null ? String(entry.name) : "").toLowerCase();
+    return phone.includes(q) || name.includes(q);
+  }
+
   function renderToSendList() {
     const sentSet = new Set((state.sent || []).map((e) => e.phone));
-    const eligible = (state.toSend || []).filter((p) => !sentSet.has(p));
+    let eligible = (state.toSend || []).filter((e) => e && e.phone && !sentSet.has(e.phone));
+    const searchEl = content.querySelector("#mdSearchToSend");
+    const searchQ = searchEl ? searchEl.value.trim() : "";
+    if (searchQ) eligible = eligible.filter((e) => matchesSearch(e, searchQ));
     toSendListEl.innerHTML = "";
-    eligible.forEach((phone) => {
+    const headerRow = document.createElement("div");
+    headerRow.className = "marketing-list-item marketing-list-header";
+    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span><span></span>`;
+    toSendListEl.appendChild(headerRow);
+    eligible.forEach((entry) => {
+      const phone = entry.phone || "";
+      const name = entry.name != null ? String(entry.name) : "";
       const div = document.createElement("div");
-      div.className = "marketing-list-item";
+      div.className = "marketing-list-item marketing-list-item-cols";
       div.innerHTML = `
-        <span>${escapeHtml(phone)}</span>
+        <span class="marketing-col-name">${escapeHtml(name)}</span>
+        <span class="marketing-col-phone">${escapeHtml(phone)}</span>
         <button type="button" class="marketing-btn-icon md-remove-phone" data-phone="${escapeHtml(phone)}" aria-label="הסר">×</button>
       `;
       toSendListEl.appendChild(div);
@@ -272,17 +330,48 @@ export async function createMarketingDistributionPanel() {
   }
 
   function renderSentList() {
+    const searchEl = content.querySelector("#mdSearchSent");
+    const searchQ = searchEl ? searchEl.value.trim() : "";
+    let list = state.sent || [];
+    if (searchQ) list = list.filter((e) => matchesSearch(e, searchQ));
     sentListEl.innerHTML = "";
-    state.sent.forEach((entry) => {
+    const headerRow = document.createElement("div");
+    headerRow.className = "marketing-list-item marketing-list-header";
+    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span><span class="marketing-list-item-sent-at">נשלח ב</span>`;
+    sentListEl.appendChild(headerRow);
+    list.forEach((entry) => {
+      const name = entry.name != null ? String(entry.name) : "";
       const div = document.createElement("div");
-      div.className = "marketing-list-item";
+      div.className = "marketing-list-item marketing-list-item-cols";
       div.innerHTML = `
-        <span>${escapeHtml(entry.phone)}</span>
+        <span class="marketing-col-name">${escapeHtml(name)}</span>
+        <span class="marketing-col-phone">${escapeHtml(entry.phone)}</span>
         <span class="marketing-list-item-sent-at">${formatSentDate(entry.sentAt)}</span>
       `;
       sentListEl.appendChild(div);
     });
     sentCountEl.textContent = state.sent.length;
+  }
+
+  function renderNeverSendList() {
+    const searchEl = content.querySelector("#mdSearchNeverSend");
+    const searchQ = searchEl ? searchEl.value.trim() : "";
+    let list = state.neverSend || [];
+    if (searchQ) list = list.filter((e) => matchesSearch(e, searchQ));
+    neverSendListEl.innerHTML = "";
+    const headerRow = document.createElement("div");
+    headerRow.className = "marketing-list-item marketing-list-header";
+    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span>`;
+    neverSendListEl.appendChild(headerRow);
+    list.forEach((entry) => {
+      const phone = typeof entry === "object" && entry && entry.phone != null ? entry.phone : entry;
+      const name = typeof entry === "object" && entry && entry.name != null ? String(entry.name) : "";
+      const div = document.createElement("div");
+      div.className = "marketing-list-item marketing-list-item-cols";
+      div.innerHTML = `<span class="marketing-col-name">${escapeHtml(name)}</span><span class="marketing-col-phone">${escapeHtml(phone)}</span>`;
+      neverSendListEl.appendChild(div);
+    });
+    neverSendCountEl.textContent = (state.neverSend || []).length;
   }
 
   async function refresh() {
@@ -292,6 +381,7 @@ export async function createMarketingDistributionPanel() {
       renderMessages();
       renderToSendList();
       renderSentList();
+      renderNeverSendList();
     } catch (e) {
       console.error("Marketing distribution refresh", e);
     }
@@ -396,18 +486,18 @@ export async function createMarketingDistributionPanel() {
 
   // Save settings
   settingsSection.querySelector("#mdSaveSettingsBtn").addEventListener("click", async () => {
-    const startHour = parseInt(content.querySelector("#mdStartHour").value, 10);
-    const endHour = parseInt(content.querySelector("#mdEndHour").value, 10);
-    const resumeHour = parseInt(content.querySelector("#mdResumeHour").value, 10);
+    const startHour = timeValueToHour(content.querySelector("#mdStartHour").value);
+    const endHour = timeValueToHour(content.querySelector("#mdEndHour").value);
+    const resumeHour = timeValueToHour(content.querySelector("#mdResumeHour").value);
     const dailyLimit = parseInt(content.querySelector("#mdDailyLimit").value, 10);
     const delayMinutes = parseInt(content.querySelector("#mdDelayMinutes").value, 10);
     try {
       state.settings = await apiPost("/settings", {
-        startHour: isNaN(startHour) ? 9 : startHour,
-        endHour: isNaN(endHour) ? 18 : endHour,
-        resumeHour: isNaN(resumeHour) ? 8 : resumeHour,
-        dailyLimit: isNaN(dailyLimit) ? 50 : dailyLimit,
-        delayMinutes: isNaN(delayMinutes) ? 5 : delayMinutes,
+        startHour,
+        endHour,
+        resumeHour,
+        dailyLimit: Number.isNaN(dailyLimit) ? 50 : dailyLimit,
+        delayMinutes: Number.isNaN(delayMinutes) ? 5 : delayMinutes,
       });
       toast.success("ההגדרות נשמרו");
     } catch (e) {
@@ -432,6 +522,46 @@ export async function createMarketingDistributionPanel() {
       alert("שגיאה: " + e.message);
     }
   });
+
+  // Excel import
+  excelInput.addEventListener("change", async (e) => {
+    const file = e.target && e.target.files && e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch(`${BASE}/import-excel`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      e.target.value = "";
+      if (!res.ok) {
+        alert(data.error || "שגיאה בייבוא הקובץ");
+        return;
+      }
+      toast.success(`נוספו ${data.added ?? 0} מספרים לרשימה לשליחה`);
+      await refresh();
+    } catch (err) {
+      alert("שגיאה: " + (err.message || "לא ניתן לייבא את הקובץ"));
+      e.target.value = "";
+    }
+  });
+
+  listsSection.querySelector("#mdClearToSendBtn").addEventListener("click", async () => {
+    if (!confirm("לנקות את כל הרשימה לשליחה? לא ניתן לשחזר.")) return;
+    try {
+      await apiPost("/to-send", { replace: true, items: [] });
+      toast.success("הרשימה נוקתה");
+      await refresh();
+    } catch (e) {
+      alert("שגיאה: " + e.message);
+    }
+  });
+
+  content.querySelector("#mdSearchToSend")?.addEventListener("input", () => renderToSendList());
+  content.querySelector("#mdSearchSent")?.addEventListener("input", () => renderSentList());
+  content.querySelector("#mdSearchNeverSend")?.addEventListener("input", () => renderNeverSendList());
 
   function closePanel() {
     import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {

@@ -10,6 +10,7 @@ import { startMarketingDistributionScheduler, stopMarketingDistributionScheduler
 import { initializeSystemTray, destroySystemTray } from "./services/systemTray.js";
 import { logInfo, logError, logWarn } from "./utils/logger.js";
 import { initGeminiWhatsAppBridge } from "./services/geminiWhatsAppBridge.js";
+import { initMarketingUnsubscribeHandler } from "./services/marketingUnsubscribeHandler.js";
 import { cleanupAllProcesses } from "./utils/processCleanup.js";
 // הגדר שם תהליך (יופיע ב-Task Manager)
 if (process.env.PROCESS_NAME) {
@@ -119,6 +120,9 @@ async function initializeClientInBackground() {
 
     // Initialize Gemini-WhatsApp bridge - גשר אוניברסלי לכל שיחות AI
     initGeminiWhatsAppBridge();
+
+    // When user sends "הסרה", add to marketing "never send" list
+    initMarketingUnsubscribeHandler();
 
     // Initialize reminder statuses (ensures all reminders have proper status fields)
     await initializeReminderStatuses();

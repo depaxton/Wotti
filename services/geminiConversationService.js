@@ -22,6 +22,26 @@ const ACTIVE_USERS_FILE = path.join(__dirname, "../utils/gemini_active_users.jso
 const FINISHED_USERS_FILE = path.join(__dirname, "../utils/gemini_finished_users.json");
 const AUTO_MESSAGES_FILE = path.join(__dirname, "../utils/ai_auto_messages.json");
 const GEMINI_SETTINGS_FILE = path.join(__dirname, "../utils/gemini_settings.json");
+const COMMENTSAI_PATH = path.join(__dirname, "../utils/COMMENTSAI.json");
+
+let _commentsCache = null;
+function loadCommentsAI() {
+  if (_commentsCache) return _commentsCache;
+  try {
+    if (fs.existsSync(COMMENTSAI_PATH)) {
+      _commentsCache = JSON.parse(fs.readFileSync(COMMENTSAI_PATH, "utf8"));
+      return _commentsCache;
+    }
+  } catch (err) {
+    logError("Error loading COMMENTSAI.json:", err);
+  }
+  _commentsCache = {};
+  return _commentsCache;
+}
+function comment(key) {
+  const comments = loadCommentsAI();
+  return comments[key] != null ? String(comments[key]) : key;
+}
 
 // =============== SETTINGS MANAGEMENT ===============
 
@@ -485,7 +505,7 @@ export async function processIncomingMessage(userId, messageText) {
           logInfo(`🔧 Function call: sending ${messagesToSend.length} predefined messages`);
           return { success: true, isFunctionCall: true, messages: messagesToSend };
         }
-        return { success: true, response: "לא נמצאו הודעות מוכנות לשליחה" };
+        return { success: true, response: comment("noReadyMessages") };
       }
     }
 

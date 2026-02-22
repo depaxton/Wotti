@@ -635,12 +635,12 @@ async function loadRemindersFromServer() {
     endDate.setDate(endDate.getDate() + 60);
     endDate.setHours(23, 59, 59, 999);
     
+    const MANUAL_PHONE = '__manual__';
     for (const [phoneNumber, userReminders] of Object.entries(allReminders)) {
       if (!Array.isArray(userReminders)) continue;
-      
-      const contactName = contactsMap[phoneNumber] || phoneNumber;
-      
+
       userReminders.forEach(reminder => {
+        const contactName = (phoneNumber === MANUAL_PHONE && reminder.clientName) ? reminder.clientName : (contactsMap[phoneNumber] || phoneNumber);
         if (!reminder.time) return;
         
         // Parse time

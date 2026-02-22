@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "startHour": 9,
   "endHour": 18,
   "resumeHour": 8,

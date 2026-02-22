@@ -240,6 +240,34 @@
   gap: 8px;
 }
 
+.appointments-add-manual-row {
+  flex-shrink: 0;
+}
+
+.appointments-add-manual-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-green);
+  background: rgba(0, 112, 37, 0.08);
+  border: 1px dashed var(--color-green);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.appointments-add-manual-btn:hover {
+  background: rgba(0, 112, 37, 0.14);
+  border-color: var(--color-green);
+  color: var(--color-dark-grey);
+}
+
 .appointments-empty {
   padding: 24px 16px;
   text-align: center;
@@ -371,10 +399,80 @@
 .appointment-edit-body label {
   display: block;
   margin-bottom: 6px;
+  margin-top: 12px;
   font-family: var(--font-hebrew);
   font-size: 13px;
   font-weight: 500;
   color: var(--color-dark-grey);
+}
+
+.appointment-edit-body label:first-child {
+  margin-top: 0;
+}
+
+.appointment-edit-body input[type="text"],
+.appointment-edit-body input[type="number"],
+.appointment-edit-body input[type="time"] {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  border: 1px solid var(--color-light-grey);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.appointment-edit-body input:focus {
+  outline: none;
+  border-color: var(--color-green);
+  box-shadow: 0 0 0 2px rgba(0, 112, 37, 0.1);
+}
+
+.appointment-edit-body .hidden {
+  display: none !important;
+}
+
+.add-manual-date-mode {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-light-grey);
+  border-radius: 8px;
+  font-family: var(--font-hebrew);
+}
+
+.add-manual-date-mode legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-dark-grey);
+}
+
+.add-manual-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.add-manual-radio-label input {
+  width: auto;
+}
+
+.add-manual-date-by-day,
+.add-manual-date-by-date {
+  margin-top: 10px;
+}
+
+.add-manual-date-by-day select {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-hebrew);
+  font-size: 14px;
+  border: 1px solid var(--color-light-grey);
+  border-radius: 8px;
+  box-sizing: border-box;
 }
 
 .appointment-edit-body textarea {

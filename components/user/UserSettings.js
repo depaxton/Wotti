@@ -25,7 +25,7 @@ export function createUserSettings(contact) {
       time: "",
       duration: 45, // will update when global settings load
       type: "one-time",
-      preReminder: ["1h", "1d", "3d"], // Array of selected pre-reminders: 30m, 1h, 1d, 3d
+      preReminder: ["1h", "1d", "3d", "1w"], // 1h, 1d, 3d, 1w by default (30m off)
     },
     allUsers: {}, // for schedule checking
   };
@@ -261,6 +261,9 @@ export function createUserSettings(contact) {
           </label>
           <label class="checkbox-option">
             <input type="checkbox" name="preReminder" value="3d" checked> 3 ימים לפני
+          </label>
+          <label class="checkbox-option">
+            <input type="checkbox" name="preReminder" value="1w" checked> שבוע לפני
           </label>
         </div>
       </div>
@@ -517,7 +520,7 @@ export function createUserSettings(contact) {
       state.newReminder.date = null;
       state.newReminder.dateMode = "day-of-week";
       state.newReminder.time = defaultTime;
-      state.newReminder.preReminder = ["1h", "1d", "3d"];
+      state.newReminder.preReminder = ["1h", "1d", "3d", "1w"];
       // Reset date mode selector
       dateModeBtns.forEach((b) => {
         if (b.dataset.mode === "day-of-week") {
@@ -527,7 +530,7 @@ export function createUserSettings(contact) {
         }
       });
       preReminderCheckboxes.forEach((cb) => {
-        cb.checked = ["1h", "1d", "3d"].includes(cb.value);
+        cb.checked = ["1h", "1d", "3d", "1w"].includes(cb.value);
       });
 
       // Reset edit mode
@@ -1255,6 +1258,7 @@ export function createUserSettings(contact) {
                 if (pr === "1h") return "שעה לפני";
                 if (pr === "1d") return "יום לפני";
                 if (pr === "3d") return "3 ימים לפני";
+                if (pr === "1w") return "שבוע לפני";
                 return pr;
               })
               .join(", ")

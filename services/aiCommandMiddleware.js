@@ -16,6 +16,7 @@ import {
 } from './reminderService.js';
 import { getUser } from './userService.js';
 import { getClient } from './whatsappClient.js';
+import { DEFAULT_PRE_REMINDERS } from '../utils/reminderValidation.js';
 import {
   parseTime,
   parseDateString,
@@ -24,6 +25,44 @@ import {
   getDayName,
 } from '../utils/dateUtils.js';
 import { logInfo, logError, logWarn } from '../utils/logger.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const COMMENTSAI_PATH = path.join(__dirname, '../utils/COMMENTSAI.json');
+let _commentsCache = null;
+
+function loadCommentsAI() {
+  if (_commentsCache) return _commentsCache;
+  try {
+    if (fs.existsSync(COMMENTSAI_PATH)) {
+      _commentsCache = JSON.parse(fs.readFileSync(COMMENTSAI_PATH, 'utf8'));
+      return _commentsCache;
+    }
+  } catch (err) {
+    logError('[AI Middleware] Error loading COMMENTSAI.json:', err);
+  }
+  _commentsCache = {};
+  return _commentsCache;
+}
+
+/**
+ * מחזיר תגובה ממסמך COMMENTSAI לפי מפתח. אם יש vars – מחליף {{key}} בערכים.
+ * @param {string} key - מפתח ב-COMMENTSAI.json
+ * @param {Record<string, string>} [vars] - ערכים להחלפה בתבנית (למשל { dateDisplay, timeStr, categoryName })
+ * @returns {string}
+ */
+function comment(key, vars = {}) {
+  const comments = loadCommentsAI();
+  let text = comments[key] != null ? String(comments[key]) : key;
+  for (const [k, v] of Object.entries(vars)) {
+    text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v != null ? String(v) : '');
+  }
+  return text;
+}
 
 // Default business hours when not configured (09:00-18:00)
 const DEFAULT_BUSINESS_HOURS = { start: '09:00', end: '18:00' };
@@ -232,23 +271,38 @@ function userHasAppointmentInHour(slotHHMM, userAppointments) {
  */
 async function handleQueryCategories(context) {
   const categories = await loadCategories();
-  if (categories.length === 0) return 'אין כרגע שירותים זמינים. אנא פנה למנהל.';
+  if (categories.length === 0) return comment('noServicesAvailable');
   const phone = context.userId ? toPhoneKey(context.userId) : 'global';
   lastCategoriesByUser.set(phone, { list: categories.map((c) => ({ id: c.id, name: c.name })) });
   return categories.map((c, i) => `${i + 1}. ${c.name}`).join(', ');
 }
 
 /**
- * [QUERY_AVAILABILITY: date=YYYY-MM-DD, category_id=... או category_number=1]
- * Returns list of free slots for the category or friendly "אין זמינות".
+ * [QUERY_AVAILABILITY: date=YYYY-MM-DD, category_id=... או category_number=1, preferred_time=HH:MM?]
+ * Returns list of free slots. If preferred_time is set (מסלול מקוצר): returns "השעה X פנויה" or "השעה X תפוסה" + list.
  */
+function normalizeTimeToHHMM(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return '';
+  const s = timeStr.trim();
+  let t = parseTime(s);
+  if (t == null && /^\d{1,2}$/.test(s)) {
+    const h = parseInt(s, 10);
+    if (h >= 0 && h <= 23) t = [h, 0];
+  }
+  if (t == null) return '';
+  const [h, m] = t;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 async function handleQueryAvailability(params, context) {
   const dateStr = (params.date || '').trim();
   let categoryId = (params.category_id || '').trim();
   const categoryNumber = params.category_number != null ? parseInt(String(params.category_number), 10) : NaN;
+  const preferredTimeRaw = (params.preferred_time || '').trim();
+  const preferredTime = preferredTimeRaw ? normalizeTimeToHHMM(preferredTimeRaw) : '';
 
-  if (!dateStr) return 'לא צוין תאריך. אנא ציין תאריך.';
-  if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return 'לא נבחר שירות. אנא בחר שירות מהרשימה.';
+  if (!dateStr) return comment('noDateProvided');
+  if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return comment('noServiceSelected');
   if (!categoryId) {
     const phone = context.userId ? toPhoneKey(context.userId) : 'global';
     let stored = lastCategoriesByUser.get(phone);
@@ -260,16 +314,16 @@ async function handleQueryAvailability(params, context) {
       if (Array.isArray(allCategories) && allCategories[categoryNumber - 1]) {
         categoryId = allCategories[categoryNumber - 1].id;
       } else {
-        return 'לא נמצא שירות. אנא התחל מחדש ובחר שירות.';
+        return comment('serviceNotFoundRestart');
       }
     }
   }
 
   const date = parseDateString(dateStr);
-  if (!date) return 'התאריך לא תקין. אנא ציין תאריך בפורמט יום-חודש-שנה.';
+  if (!date) return comment('invalidDateFormat');
 
   const category = await getCategoryById(categoryId);
-  if (!category) return 'השירות לא נמצא. אנא בחר שירות מהרשימה.';
+  if (!category) return comment('serviceNotFound');
 
   const phone = context.userId ? toPhoneKey(context.userId) : '';
   const businessHours = await loadBusinessHours();
@@ -320,8 +374,13 @@ async function handleQueryAvailability(params, context) {
     freeSlots.push(slot);
   }
 
-  if (freeSlots.length === 0) return 'אין שעות פנויות בתאריך זה. אנא בחר תאריך אחר.';
-  return freeSlots.join(', ');
+  if (freeSlots.length === 0) return comment('noSlotsThatDate');
+  if (preferredTime) {
+    const isAvailable = freeSlots.includes(preferredTime);
+    if (isAvailable) return comment('preferredTimeAvailable', { time: preferredTime });
+    return comment('preferredTimeTaken', { time: preferredTime }) + '\n' + freeSlots.join('\n');
+  }
+  return freeSlots.join('\n');
 }
 
 /**
@@ -334,8 +393,8 @@ async function handleBookAppointment(params, context) {
   let categoryId = (params.category_id || '').trim();
   const categoryNumber = params.category_number != null ? parseInt(String(params.category_number), 10) : NaN;
 
-  if (!dateStr || !timeStr) return 'חסרים תאריך או שעה. אנא נסה שוב.';
-  if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return 'לא נבחר שירות. אנא בחר שירות מהרשימה.';
+  if (!dateStr || !timeStr) return comment('missingDateOrTime');
+  if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return comment('noServiceSelected');
   if (!categoryId) {
     const phone = context.userId ? toPhoneKey(context.userId) : 'global';
     const stored = lastCategoriesByUser.get(phone);
@@ -346,21 +405,21 @@ async function handleBookAppointment(params, context) {
       if (Array.isArray(allCategories) && allCategories[categoryNumber - 1]) {
         categoryId = allCategories[categoryNumber - 1].id;
       } else {
-        return 'השירות לא נמצא. אנא התחל מחדש ובחר שירות.';
+        return comment('serviceNotFoundRestart');
       }
     }
   }
 
   const date = parseDateString(dateStr);
-  if (!date) return 'התאריך לא תקין. אנא ציין תאריך.';
+  if (!date) return comment('invalidDate');
   const [h, m] = parseTime(timeStr);
-  if (h === undefined) return 'השעה לא תקינה. אנא בחר שעה מהרשימה.';
+  if (h === undefined) return comment('invalidTime');
 
   const category = await getCategoryById(categoryId);
-  if (!category) return 'השירות לא נמצא. אנא בחר שירות מהרשימה.';
+  if (!category) return comment('serviceNotFound');
 
   const phone = context.userId ? toPhoneKey(context.userId) : '';
-  if (!phone) return 'לא ניתן לזהות את המשתמש. אנא נסה שוב.';
+  if (!phone) return comment('cannotIdentifyUser');
 
   const duration = category.durationMinutes;
   const slotMin = h * 60 + m;
@@ -373,13 +432,13 @@ async function handleBookAppointment(params, context) {
   const userAppointments = getUserAppointmentsForDate(userReminders, dateStr);
 
   if (isSlotBlockedByCategory(timeStr, duration, categoryId, allAppointments, category)) {
-    return 'השעה שבחרת תפוסה. אנא בחר שעה אחרת מהרשימה.';
+    return comment('slotTaken');
   }
   if (countCategoryInHour(timeStr, categoryId, allAppointments) >= category.maxPerHour) {
-    return 'אין מקום בשעה זו. אנא בחר שעה אחרת.';
+    return comment('noRoomThisHour');
   }
   if (userHasAppointmentInHour(timeStr, userAppointments)) {
-    return 'יש לך כבר תור בשעה זו. אנא בחר שעה אחרת.';
+    return comment('alreadyHaveAppointmentThisHour');
   }
 
   const businessHours = await loadBusinessHours();
@@ -396,11 +455,11 @@ async function handleBookAppointment(params, context) {
       break;
     }
   }
-  if (!withinHours) return 'השעה מחוץ לשעות הפעילות. אנא בחר שעה מהרשימה.';
+  if (!withinHours) return comment('outsideBusinessHours');
 
   const validSlots = generateSlotsForCategory(ranges, category);
   if (!validSlots.includes(timeStr)) {
-    return 'השעה אינה זמינה. אנא בחר שעה מהרשימה שהצגתי.';
+    return comment('timeNotInList');
   }
 
   const freshReminders = await getRemindersForUser(phone);
@@ -409,10 +468,10 @@ async function handleBookAppointment(params, context) {
   const freshAllAppointments = getAllAppointmentsForDate(freshAllReminders, dateStr, categoryBufferMap);
 
   if (isSlotBlockedByCategory(timeStr, duration, categoryId, freshAllAppointments, category)) {
-    return 'השעה שבחרת תפוסה ברגע זה. אנא בחר שעה אחרת.';
+    return comment('slotTakenNow');
   }
   if (userHasAppointmentInHour(timeStr, freshUserAppointments)) {
-    return 'יש לך כבר תור בשעה זו. אנא בחר שעה אחרת.';
+    return comment('alreadyHaveAppointmentThisHour');
   }
 
   // Reminder validation requires duration >= 15 and divisible by 15
@@ -433,6 +492,7 @@ async function handleBookAppointment(params, context) {
     title: titleForCalendar,
     duration: validDuration,
     categoryId: category.id,
+    preReminder: DEFAULT_PRE_REMINDERS,
   };
 
   const remindersBefore = [...freshReminders];
@@ -446,7 +506,7 @@ async function handleBookAppointment(params, context) {
 
   logInfo(`[AI Middleware] BOOK_APPOINTMENT: created ${id} for ${phone} at ${dateStr} ${timeStr} (${category.name})`);
   const dateDisplay = formatDateShort(dateStr);
-  return `התור נקבע בהצלחה ל־${dateDisplay} בשעה ${timeStr} – ${category.name}.`;
+  return comment('bookSuccess', { dateDisplay, timeStr, categoryName: category.name || '' });
 }
 
 /**
@@ -458,20 +518,20 @@ async function handleCancelAppointment(params, context) {
   const numberParam = params.number != null ? parseInt(String(params.number), 10) : NaN;
 
   if (!appointmentId && (isNaN(numberParam) || numberParam < 1)) {
-    return 'לא צוין איזה תור לבטל. אנא בחר מספר תור מהרשימה.';
+    return comment('cancelNoNumber');
   }
   if (!appointmentId) {
     const phone = context.userId ? toPhoneKey(context.userId) : '';
-    if (!phone) return 'לא ניתן לזהות את המשתמש. אנא נסה שוב.';
+    if (!phone) return comment('cannotIdentifyUser');
     const stored = lastAppointmentsListByUser.get(phone);
     if (!stored || !stored.list || !stored.list[numberParam - 1]) {
-      return 'לא נמצא התור. אנא בקש להציג את רשימת התורים ולבחור מספר.';
+      return comment('cancelAppointmentNotFound');
     }
     appointmentId = stored.list[numberParam - 1].id;
   }
 
   const found = await findReminderById(appointmentId);
-  if (!found) return 'התור לא נמצא או כבר בוטל.';
+  if (!found) return comment('appointmentNotFoundOrCancelled');
 
   const eventId = found.reminder?.googleCalendarEventId;
   const reminders = await loadReminders();
@@ -487,7 +547,7 @@ async function handleCancelAppointment(params, context) {
   }
 
   logInfo(`[AI Middleware] CANCEL_APPOINTMENT: removed ${appointmentId}`);
-  return 'התור בוטל בהצלחה.';
+  return comment('cancelSuccess');
 }
 
 /**
@@ -497,7 +557,7 @@ async function handleCancelAppointment(params, context) {
 async function handleListAppointments(params, context) {
   const userIdParam = (params.user_id || '').trim();
   const phone = userIdParam ? toPhoneKey(userIdParam) : (context.userId ? toPhoneKey(context.userId) : '');
-  if (!phone) return 'לא ניתן להציג תורים. אנא נסה שוב.';
+  if (!phone) return comment('listCannotDisplay');
 
   const userReminders = await getRemindersForUser(phone);
   const todayStr = formatDateString(getCurrentDate());
@@ -508,7 +568,7 @@ async function handleListAppointments(params, context) {
       return (a.time || '').localeCompare(b.time || '');
     });
 
-  if (future.length === 0) return 'אין לך תורים עתידיים.';
+  if (future.length === 0) return comment('noFutureAppointments');
   lastAppointmentsListByUser.set(phone, { list: future });
   return future
     .map((r, i) => `${i + 1}. ${formatDateShort(r.date)} בשעה ${r.time || '--:--'}${r.title ? ' – ' + r.title : ''}`)
@@ -525,7 +585,7 @@ function handleAbortBooking(context) {
     logInfo(`[AI Middleware] ABORT_BOOKING: cleared temp state for ${key}`);
   }
   lastCategoriesByUser.delete(key);
-  return 'בוטל.';
+  return comment('abortBooking');
 }
 
 // --------------- Regex patterns ---------------
@@ -588,7 +648,7 @@ export async function processAiResponse(text, context = {}) {
         result = result.replace(fullMatch, String(replacement));
       } catch (err) {
         logError(`[AI Middleware] Error executing ${name}:`, err);
-        result = result.replace(fullMatch, 'משהו השתבש. אנא נסה שוב או פנה למנהל.');
+        result = result.replace(fullMatch, comment('middlewareError'));
       }
     }
   }

@@ -14,6 +14,7 @@ const FILES = {
   messages: path.join(UTILS_DIR, "marketing_distribution_messages.json"),
   toSend: path.join(UTILS_DIR, "marketing_distribution_to_send.json"),
   sent: path.join(UTILS_DIR, "marketing_distribution_sent.json"),
+  neverSend: path.join(UTILS_DIR, "marketing_distribution_never_send.json"),
   settings: path.join(UTILS_DIR, "marketing_distribution_settings.json"),
 };
 
@@ -83,35 +84,67 @@ export function pickRandomMessage(messages) {
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
-// --- To-send list ---
+// --- To-send list (each item: { phone, name? }) ---
+
+function toSendEntry(item) {
+  if (item == null) return null;
+  if (typeof item === "object" && item.phone != null) {
+    const phone = normalizePhoneForStorage(item.phone);
+    return phone ? { phone, name: item.name != null ? String(item.name).trim() : "" } : null;
+  }
+  const phone = normalizePhoneForStorage(item);
+  return phone ? { phone, name: "" } : null;
+}
+
+function phoneSet(list) {
+  return new Set((list || []).map((e) => (typeof e === "object" && e.phone != null ? e.phone : e)));
+}
 
 export async function getToSendList() {
   const list = await readJson(FILES.toSend, []);
-  return Array.isArray(list) ? list : [];
+  if (!Array.isArray(list)) return [];
+  return list.map((item) => {
+    if (typeof item === "object" && item.phone != null) return { phone: item.phone, name: item.name != null ? String(item.name) : "" };
+    return { phone: String(item), name: "" };
+  });
 }
 
-export async function setToSendList(phones) {
-  const normalized = (Array.isArray(phones) ? phones : [])
-    .map((p) => normalizePhoneForStorage(p))
-    .filter((p) => p.length > 0);
-  await writeJson(FILES.toSend, [...new Set(normalized)]);
+export async function setToSendList(phonesOrItems) {
+  const neverList = await getNeverSendList();
+  const neverSet = neverSendPhonesSet(neverList);
+  const arr = Array.isArray(phonesOrItems) ? phonesOrItems : [];
+  const seen = new Set();
+  const normalized = [];
+  for (const p of arr) {
+    const entry = toSendEntry(p);
+    if (!entry || !entry.phone.length || neverSet.has(entry.phone) || seen.has(entry.phone)) continue;
+    seen.add(entry.phone);
+    normalized.push(entry);
+  }
+  await writeJson(FILES.toSend, normalized);
   return normalized;
 }
 
-export async function addToSend(phone) {
-  const list = await getToSendList();
-  const normalized = normalizePhoneForStorage(phone);
-  if (!normalized || list.includes(normalized)) return list;
-  list.push(normalized);
+export async function addToSend(phone, name = "") {
+  const [list, neverList] = await Promise.all([getToSendList(), getNeverSendList()]);
+  const entry = toSendEntry({ phone, name });
+  if (!entry || phoneSet(list).has(entry.phone) || neverSendPhonesSet(neverList).has(entry.phone)) return list;
+  list.push(entry);
   await writeJson(FILES.toSend, list);
   return list;
 }
 
-export async function addManyToSend(phones) {
-  const list = await getToSendList();
-  const toAdd = (Array.isArray(phones) ? phones : [])
-    .map((p) => normalizePhoneForStorage(p))
-    .filter((p) => p.length > 0 && !list.includes(p));
+export async function addManyToSend(phonesOrItems) {
+  const [list, neverList] = await Promise.all([getToSendList(), getNeverSendList()]);
+  const neverSet = neverSendPhonesSet(neverList);
+  const listPhones = phoneSet(list);
+  const toAdd = [];
+  for (const p of Array.isArray(phonesOrItems) ? phonesOrItems : []) {
+    const entry = toSendEntry(p);
+    if (!entry || !entry.phone.length || listPhones.has(entry.phone) || neverSet.has(entry.phone)) continue;
+    listPhones.add(entry.phone);
+    toAdd.push(entry);
+  }
   if (toAdd.length === 0) return list;
   const next = [...list, ...toAdd];
   await writeJson(FILES.toSend, next);
@@ -121,10 +154,45 @@ export async function addManyToSend(phones) {
 export async function removeFromToSend(phone) {
   const list = await getToSendList();
   const normalized = normalizePhoneForStorage(phone);
-  const filtered = list.filter((p) => p !== normalized);
+  const filtered = list.filter((e) => (e && e.phone) !== normalized);
   if (filtered.length === list.length) return list;
   await writeJson(FILES.toSend, filtered);
   return filtered;
+}
+
+// --- Never send list (לעולם לא לשלוח), each item: { phone, name? } ---
+
+function neverSendPhonesSet(list) {
+  return new Set(
+    (list || []).map((e) => (typeof e === "object" && e && e.phone != null ? e.phone : e))
+  );
+}
+
+export async function getNeverSendList() {
+  const list = await readJson(FILES.neverSend, []);
+  if (!Array.isArray(list)) return [];
+  return list.map((item) => {
+    if (typeof item === "object" && item && item.phone != null) {
+      return { phone: item.phone, name: item.name != null ? String(item.name) : "" };
+    }
+    return { phone: String(item), name: "" };
+  });
+}
+
+export async function addToNeverSend(phone, name = "") {
+  const list = await getNeverSendList();
+  const normalized = normalizePhoneForStorage(phone);
+  if (!normalized) return list;
+  if (neverSendPhonesSet(list).has(normalized)) return list;
+  list.push({ phone: normalized, name: name != null ? String(name).trim() : "" });
+  await writeJson(FILES.neverSend, list);
+  logInfo(`Marketing: added to never-send list: ${normalized} (${name || "—"})`);
+  return list;
+}
+
+export function isInNeverSend(neverList, phone) {
+  const normalized = normalizePhoneForStorage(phone);
+  return neverList && neverSendPhonesSet(neverList).has(normalized);
 }
 
 // --- Sent list ---
@@ -134,10 +202,10 @@ export async function getSentList() {
   return Array.isArray(list) ? list : [];
 }
 
-export async function addToSent(phone) {
+export async function addToSent(phone, name = "") {
   const list = await getSentList();
   const normalized = normalizePhoneForStorage(phone);
-  const entry = { phone: normalized, sentAt: new Date().toISOString() };
+  const entry = { phone: normalized, sentAt: new Date().toISOString(), name: name != null ? String(name) : "" };
   list.push(entry);
   await writeJson(FILES.sent, list);
   return list;
@@ -147,11 +215,13 @@ export function getSentSet(sentList) {
   return new Set((sentList || []).map((e) => e.phone));
 }
 
-/** Normalize phone to digits; Israeli 0xx -> 972xx */
+/** Normalize phone to digits; Israeli 0xx -> 972xx; 9 digits starting with 5 -> 9725... (Excel numeric) */
 export function normalizePhoneForStorage(phone) {
   let digits = String(phone || "").replace(/\D/g, "").trim();
   if (digits.startsWith("0") && (digits.length === 9 || digits.length === 10)) {
     digits = "972" + digits.slice(1);
+  } else if (digits.length === 9 && digits.startsWith("5")) {
+    digits = "972" + digits;
   }
   return digits;
 }
@@ -162,11 +232,16 @@ export function phoneToChatId(phone) {
   return digits ? `${digits}@c.us` : null;
 }
 
-// Returns phone numbers that are in toSend but not in sent (eligible for sending)
+// Returns to-send entries that are not in sent and not in neverSend (eligible for sending)
 export async function getEligibleToSend() {
-  const [toSend, sentList] = await Promise.all([getToSendList(), getSentList()]);
+  const [toSend, sentList, neverList] = await Promise.all([
+    getToSendList(),
+    getSentList(),
+    getNeverSendList(),
+  ]);
   const sentSet = getSentSet(sentList);
-  return toSend.filter((p) => !sentSet.has(p));
+  const neverSet = neverSendPhonesSet(neverList);
+  return toSend.filter((e) => e && e.phone && !sentSet.has(e.phone) && !neverSet.has(e.phone));
 }
 
 // --- Settings ---

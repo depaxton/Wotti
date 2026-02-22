@@ -253,18 +253,75 @@
   color: white;
 }
 
-/* Lists section - two columns */
+/* Lists section - three columns */
 .marketing-lists-section {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 24px;
   min-height: 280px;
+}
+
+@media (max-width: 1024px) {
+  .marketing-lists-section {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 768px) {
   .marketing-lists-section {
     grid-template-columns: 1fr;
   }
+}
+
+.marketing-never-send-card .marketing-list-count.never {
+  background: #a0a0a0;
+}
+
+.marketing-never-send-desc {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--color-medium-grey);
+  background: rgba(0,0,0,0.03);
+}
+
+.marketing-excel-upload {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.marketing-excel-upload input { display: none; }
+
+.marketing-excel-btn {
+  padding: 10px 14px;
+  background: var(--color-medium-grey);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.marketing-excel-btn:hover {
+  filter: brightness(1.1);
+}
+
+.marketing-clear-list-btn {
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--color-medium-grey);
+  border: 1px solid var(--color-medium-grey);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.marketing-clear-list-btn:hover {
+  background: rgba(0,0,0,0.06);
+  color: #c00;
+  border-color: #c00;
 }
 
 .marketing-list-card {
@@ -299,6 +356,20 @@
   background: var(--color-medium-grey);
 }
 
+.marketing-list-search {
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-light-grey);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  width: calc(100% - 24px);
+  box-sizing: border-box;
+}
+
+.marketing-list-search::placeholder {
+  color: var(--color-medium-grey);
+}
+
 .marketing-list-body {
   flex: 1;
   overflow-y: auto;
@@ -316,6 +387,37 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.marketing-list-item-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.marketing-list-item-cols .marketing-col-name {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marketing-list-item-cols .marketing-col-phone {
+  direction: ltr;
+  text-align: right;
+  font-family: inherit;
+}
+
+.marketing-list-item-cols .marketing-list-item-sent-at {
+  grid-column: span 1;
+}
+
+.marketing-list-header {
+  background: rgba(0,0,0,0.06) !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--color-medium-grey);
 }
 
 .marketing-list-item-sent-at {
