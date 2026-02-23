@@ -667,6 +667,11 @@
     border-radius: 12px;
   }
 
+  /* כפתור X בחלק העליון גלוי בחלון הוספת תור ידנית */
+  .appointment-add-manual-popup .appointment-edit-close {
+    display: flex !important;
+  }
+
   .appointment-edit-body .add-manual-select,
   .appointment-edit-body input[type="text"],
   .appointment-edit-body input[type="number"],

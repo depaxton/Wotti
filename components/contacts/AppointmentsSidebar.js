@@ -234,7 +234,6 @@ function openAddManualPopup(onSave) {
         <textarea id="add-manual-notes" rows="3" placeholder="הערות..."></textarea>
       </div>
       <div class="appointment-edit-actions">
-        <button type="button" class="appointment-add-manual-close" aria-label="יציאה">✕</button>
         <button type="button" class="appointment-edit-save-notes appointment-add-manual-submit">הוסף תור</button>
       </div>
     </div>
@@ -323,7 +322,6 @@ function openAddManualPopup(onSave) {
     if (e.target === overlay) close();
   });
   overlay.querySelector('.appointment-edit-close').addEventListener('click', close);
-  overlay.querySelector('.appointment-add-manual-close').addEventListener('click', close);
 
   overlay.querySelector('.appointment-add-manual-submit').addEventListener('click', async () => {
     const nameInput = overlay.querySelector('#add-manual-name');
