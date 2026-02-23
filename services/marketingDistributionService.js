@@ -214,6 +214,16 @@ export async function addToSent(phone, name = "") {
   return list;
 }
 
+export async function removeFromSent(phone) {
+  const list = await getSentList();
+  const normalized = normalizePhoneForStorage(phone);
+  if (!normalized) return false;
+  const filtered = list.filter((e) => (e && e.phone) !== normalized);
+  if (filtered.length === list.length) return false;
+  await writeJson(FILES.sent, filtered);
+  return true;
+}
+
 export function getSentSet(sentList) {
   return new Set((sentList || []).map((e) => e.phone));
 }

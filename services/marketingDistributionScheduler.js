@@ -77,6 +77,14 @@ async function tick() {
   }
 }
 
+/**
+ * Run one tick immediately (e.g. when user just enabled distribution).
+ * Safe to call from API – runs in background, does not block response.
+ */
+export function runTickNow() {
+  tick().catch((e) => logError("marketingDistributionScheduler runTickNow", e));
+}
+
 export function startMarketingDistributionScheduler() {
   if (intervalId) return;
   intervalId = setInterval(tick, CHECK_INTERVAL_MS);

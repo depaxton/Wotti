@@ -437,6 +437,17 @@
   grid-column: span 1;
 }
 
+#mdSentList .marketing-list-item-cols {
+  grid-template-columns: 1fr 1fr 1fr auto;
+}
+
+#mdSentList .marketing-list-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .marketing-list-header {
   background: rgba(0,0,0,0.06) !important;
   font-weight: 700;

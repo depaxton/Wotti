@@ -206,6 +206,7 @@ export async function createMarketingDistributionPanel() {
   const neverSendCountEl = listsSection.querySelector("#mdNeverSendCount");
   const excelInput = listsSection.querySelector("#mdExcelInput");
 
+  let refreshIntervalId = null;
   let state = {
     messages: [],
     toSend: [],
@@ -353,7 +354,7 @@ export async function createMarketingDistributionPanel() {
     sentListEl.innerHTML = "";
     const headerRow = document.createElement("div");
     headerRow.className = "marketing-list-item marketing-list-header";
-    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span><span class="marketing-list-item-sent-at">נשלח ב</span>`;
+    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span><span class="marketing-list-item-sent-at">נשלח ב</span><span></span>`;
     sentListEl.appendChild(headerRow);
     list.forEach((entry) => {
       const name = entry.name != null ? String(entry.name) : "";
@@ -363,8 +364,19 @@ export async function createMarketingDistributionPanel() {
         <span class="marketing-col-name">${escapeHtml(name)}</span>
         <span class="marketing-col-phone">${escapeHtml(entry.phone)}</span>
         <span class="marketing-list-item-sent-at">${formatSentDate(entry.sentAt)}</span>
+        <button type="button" class="marketing-btn-icon md-remove-sent" data-phone="${escapeHtml(entry.phone)}" aria-label="הסר מרשימת נשלחו">×</button>
       `;
       sentListEl.appendChild(div);
+    });
+    sentListEl.querySelectorAll(".md-remove-sent").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await apiDelete(`/sent/${encodeURIComponent(btn.dataset.phone)}`);
+          await refresh();
+        } catch (e) {
+          alert("שגיאה: " + e.message);
+        }
+      });
     });
     sentCountEl.textContent = state.sent.length;
   }
@@ -609,6 +621,10 @@ export async function createMarketingDistributionPanel() {
   content.querySelector("#mdSearchNeverSend")?.addEventListener("input", () => renderNeverSendList());
 
   function closePanel() {
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId);
+      refreshIntervalId = null;
+    }
     import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
       if (isMobile()) {
         if (panel.parentNode) panel.parentNode.removeChild(panel);
@@ -653,5 +669,6 @@ export async function createMarketingDistributionPanel() {
   }
 
   await refresh();
+  refreshIntervalId = setInterval(() => refresh(), 15000);
   return panel;
 }

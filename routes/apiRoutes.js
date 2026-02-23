@@ -117,6 +117,7 @@ router.get("/marketing-distribution/to-send", marketingDistribution.getToSendCon
 router.post("/marketing-distribution/to-send", marketingDistribution.postToSendController);
 router.delete("/marketing-distribution/to-send/:phone", marketingDistribution.deleteFromToSendController);
 router.get("/marketing-distribution/sent", marketingDistribution.getSentController);
+router.delete("/marketing-distribution/sent/:phone", marketingDistribution.deleteFromSentController);
 router.get("/marketing-distribution/never-send", marketingDistribution.getNeverSendController);
 router.get("/marketing-distribution/settings", marketingDistribution.getSettingsController);
 router.post("/marketing-distribution/settings", marketingDistribution.postSettingsController);

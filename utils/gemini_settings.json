@@ -3,9 +3,9 @@
   "autoModeConfig": {
     "maxRecentChats": 5,
     "maxMessageExchanges": 10,
-    "activationWords": "תור , לקבוע ,לשנות תור , לשנות שעה",
+    "activationWords": "תור , לקבוע ,לשנות תור , לשנות שעה , אשמח",
     "exitWordsFromUser": "מספיק , תפסיק , נציג אנושי ,אדם , אנושי",
     "exitWordsFromOperator": "אני מטפל , העברה אלי ,ביטלתי"
   },
-  "updatedAt": "2026-02-23T01:24:09.780Z"
+  "updatedAt": "2026-02-23T03:53:59.368Z"
 }

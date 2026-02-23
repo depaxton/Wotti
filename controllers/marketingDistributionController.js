@@ -19,10 +19,12 @@ import {
   pickRandomMessage,
   incrementSentToday,
   addToSent,
+  removeFromSent,
   phoneToChatId,
   normalizePhoneForStorage,
 } from "../services/marketingDistributionService.js";
 import { getClient, isClientReady } from "../services/whatsappClient.js";
+import { runTickNow } from "../services/marketingDistributionScheduler.js";
 import { logError, logInfo } from "../utils/logger.js";
 import XLSX from "xlsx";
 
@@ -151,6 +153,23 @@ export async function getSentController(req, res) {
 }
 
 /**
+ * DELETE /api/marketing-distribution/sent/:phone
+ * Remove one entry from the sent list (by phone).
+ */
+export async function deleteFromSentController(req, res) {
+  try {
+    const phone = req.params.phone;
+    if (!phone) return res.status(400).json({ error: "Missing phone" });
+    const removed = await removeFromSent(phone);
+    if (!removed) return res.status(404).json({ error: "Not found in sent list" });
+    res.json({ success: true });
+  } catch (e) {
+    logError("marketingDistribution deleteFromSent", e);
+    res.status(500).json({ error: e.message });
+  }
+}
+
+/**
  * GET /api/marketing-distribution/settings
  */
 export async function getSettingsController(req, res) {
@@ -171,6 +190,9 @@ export async function postSettingsController(req, res) {
   try {
     const settings = await updateSettings(req.body || {});
     res.json(settings);
+    if (settings.enabled) {
+      runTickNow();
+    }
   } catch (e) {
     logError("marketingDistribution postSettings", e);
     res.status(500).json({ error: e.message });
