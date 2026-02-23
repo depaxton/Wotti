@@ -89,6 +89,10 @@ export async function createServiceCategoriesPanel() {
     const card = document.createElement('div');
     card.className = 'service-categories-card';
     card.dataset.id = cat.id;
+    const treatments = cat.treatments || [];
+    const treatmentsListHtml = treatments.length
+      ? treatments.map((t) => renderTreatmentRow(cat.id, t)).join('')
+      : '<div class="service-categories-treatments-empty">אין סוגי טיפולים. הוסף סוג טיפול להלן.</div>';
     card.innerHTML = `
       <div class="service-categories-card-header">
         <span class="service-categories-card-name">${escapeHtml(cat.name)}</span>
@@ -102,8 +106,241 @@ export async function createServiceCategoriesPanel() {
         <span>מרווח: ${cat.bufferMinutes} דק׳</span>
         <span>מקסימום בשעה: ${cat.maxPerHour}</span>
       </div>
+      <div class="service-categories-treatments-wrap">
+        <h4 class="service-categories-treatments-title">סוגי טיפולים</h4>
+        <div class="service-categories-treatments-list">${treatmentsListHtml}</div>
+        <button type="button" class="service-categories-add-treatment-btn" data-category-id="${cat.id}">+ הוסף סוג טיפול</button>
+      </div>
     `;
+    const addBtn = card.querySelector('.service-categories-add-treatment-btn');
+    if (addBtn) addBtn.addEventListener('click', () => openTreatmentModal(cat.id, null));
     return card;
+  }
+
+  function renderTreatmentRow(categoryId, t) {
+    return `
+      <div class="service-categories-treatment-row" data-treatment-id="${t.id}">
+        <span class="service-categories-treatment-name" title="לחץ לעריכת שם">${escapeHtml(t.name)}</span>
+        <div class="service-categories-treatment-fields">
+          <div class="service-categories-stepper-wrap">
+            <span class="service-categories-stepper-label">משך (דק׳)</span>
+            <div class="service-categories-stepper">
+              <button type="button" class="service-categories-stepper-btn" data-dir="-1" data-field="durationMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" aria-label="הפחת דקה">−</button>
+              <input type="number" class="service-categories-stepper-input" data-field="durationMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" value="${t.durationMinutes}" min="1" max="480" step="1" readonly />
+              <button type="button" class="service-categories-stepper-btn" data-dir="1" data-field="durationMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" aria-label="הוסף דקה">+</button>
+            </div>
+          </div>
+          <div class="service-categories-stepper-wrap">
+            <span class="service-categories-stepper-label">מרווח (דק׳)</span>
+            <div class="service-categories-stepper">
+              <button type="button" class="service-categories-stepper-btn" data-dir="-1" data-field="bufferMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" aria-label="הפחת דקה">−</button>
+              <input type="number" class="service-categories-stepper-input" data-field="bufferMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" value="${t.bufferMinutes}" min="0" max="60" step="1" readonly />
+              <button type="button" class="service-categories-stepper-btn" data-dir="1" data-field="bufferMinutes" data-category-id="${categoryId}" data-treatment-id="${t.id}" aria-label="הוסף דקה">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="service-categories-treatment-actions">
+          <button type="button" class="service-categories-treatment-edit-btn" data-category-id="${categoryId}" data-treatment-id="${t.id}" title="עריכת שם">✏️</button>
+          <button type="button" class="service-categories-treatment-delete-btn" data-category-id="${categoryId}" data-treatment-id="${t.id}" title="מחק">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function handleTreatmentListClick(e) {
+    const card = e.target.closest('.service-categories-card');
+    if (!card) return;
+    const categoryId = card.dataset.id;
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!cat) return;
+
+    const stepperBtn = e.target.closest('.service-categories-stepper-btn[data-category-id][data-treatment-id]');
+    if (stepperBtn) {
+      e.preventDefault();
+      const treatmentId = stepperBtn.dataset.treatmentId;
+      const treatment = (cat.treatments || []).find((tr) => tr.id === treatmentId);
+      if (!treatment) return;
+      const field = stepperBtn.dataset.field;
+      const dir = parseInt(stepperBtn.dataset.dir, 10);
+      const min = field === 'bufferMinutes' ? 0 : 1;
+      const max = field === 'bufferMinutes' ? 60 : 480;
+      let val = treatment[field] + dir;
+      val = Math.max(min, Math.min(max, val));
+      const row = stepperBtn.closest('.service-categories-treatment-row');
+      updateTreatmentAndSync(categoryId, treatmentId, { [field]: val }, row, field, val);
+      return;
+    }
+
+    const editBtn = e.target.closest('.service-categories-treatment-edit-btn');
+    if (editBtn) {
+      e.preventDefault();
+      const treatment = (cat.treatments || []).find((tr) => tr.id === editBtn.dataset.treatmentId);
+      if (treatment) openTreatmentModal(categoryId, treatment);
+      return;
+    }
+
+    const deleteBtn = e.target.closest('.service-categories-treatment-delete-btn');
+    if (deleteBtn) {
+      e.preventDefault();
+      deleteTreatmentConfirm(categoryId, deleteBtn.dataset.treatmentId);
+      return;
+    }
+
+    const nameEl = e.target.closest('.service-categories-treatment-name');
+    if (nameEl) {
+      const row = nameEl.closest('.service-categories-treatment-row');
+      const treatmentId = row?.dataset?.treatmentId;
+      const treatment = (cat.treatments || []).find((tr) => tr.id === treatmentId);
+      if (treatment) openTreatmentModal(categoryId, treatment);
+    }
+  }
+
+  async function updateTreatmentAndSync(categoryId, treatmentId, updates, row, field, displayVal) {
+    try {
+      const res = await fetch(`${API_URL}/api/service-categories/${categoryId}/treatments/${treatmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const cat = categories.find((c) => c.id === categoryId);
+        if (cat && cat.treatments) {
+          const idx = cat.treatments.findIndex((tr) => tr.id === treatmentId);
+          if (idx >= 0) cat.treatments[idx] = updated;
+        }
+        const input = row.querySelector(`.service-categories-stepper-input[data-field="${field}"]`);
+        if (input) input.value = displayVal;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function openTreatmentModal(categoryId, existing) {
+    const isEdit = !!existing;
+    const modal = document.createElement('div');
+    modal.className = 'service-categories-modal-overlay service-categories-treatment-modal';
+    modal.innerHTML = `
+      <div class="service-categories-modal">
+        <h3>${isEdit ? 'עריכת סוג טיפול' : 'הוספת סוג טיפול'}</h3>
+        <form class="service-categories-form service-categories-treatment-form">
+          <label>
+            <span>שם סוג הטיפול</span>
+            <input type="text" name="name" placeholder="למשל: תספורת גבר, צבע" value="${existing ? escapeHtml(existing.name) : ''}" required />
+          </label>
+          <label>
+            <span>משך הטיפול (דקות)</span>
+            <div class="service-categories-stepper service-categories-stepper-inline">
+              <button type="button" class="service-categories-stepper-btn modal-duration-minus" aria-label="הפחת">−</button>
+              <input type="number" name="durationMinutes" class="service-categories-stepper-input" value="${existing ? existing.durationMinutes : 30}" min="1" max="480" step="1" />
+              <button type="button" class="service-categories-stepper-btn modal-duration-plus" aria-label="הוסף">+</button>
+            </div>
+          </label>
+          <label>
+            <span>מרווח ברירת מחדל (דקות)</span>
+            <div class="service-categories-stepper service-categories-stepper-inline">
+              <button type="button" class="service-categories-stepper-btn modal-buffer-minus" aria-label="הפחת">−</button>
+              <input type="number" name="bufferMinutes" class="service-categories-stepper-input" value="${existing ? existing.bufferMinutes : 10}" min="0" max="60" step="1" />
+              <button type="button" class="service-categories-stepper-btn modal-buffer-plus" aria-label="הוסף">+</button>
+            </div>
+          </label>
+          <div class="service-categories-modal-actions">
+            <button type="button" class="service-categories-modal-cancel treatment-modal-cancel">ביטול</button>
+            <button type="submit" class="service-categories-modal-save">שמור</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const form = modal.querySelector('.service-categories-treatment-form');
+    const durationInput = form.querySelector('input[name="durationMinutes"]');
+    const bufferInput = form.querySelector('input[name="bufferMinutes"]');
+
+    const stepInput = (input, delta) => {
+      const min = parseInt(input.min, 10) || 0;
+      const max = parseInt(input.max, 10) || 480;
+      let v = (parseInt(input.value, 10) || 0) + delta;
+      input.value = Math.max(min, Math.min(max, v));
+    };
+    modal.querySelector('.modal-duration-minus')?.addEventListener('click', () => stepInput(durationInput, -1));
+    modal.querySelector('.modal-duration-plus')?.addEventListener('click', () => stepInput(durationInput, 1));
+    modal.querySelector('.modal-buffer-minus')?.addEventListener('click', () => stepInput(bufferInput, -1));
+    modal.querySelector('.modal-buffer-plus')?.addEventListener('click', () => stepInput(bufferInput, 1));
+
+    const close = () => modal.remove();
+    modal.querySelector('.treatment-modal-cancel')?.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = (form.querySelector('input[name="name"]').value || '').trim() || 'טיפול';
+      const durationMinutes = Math.max(1, Math.min(480, parseInt(durationInput.value, 10) || 30));
+      const bufferMinutes = Math.max(0, Math.min(60, parseInt(bufferInput.value, 10) || 10));
+      try {
+        if (isEdit) {
+          const res = await fetch(`${API_URL}/api/service-categories/${categoryId}/treatments/${existing.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, durationMinutes, bufferMinutes }),
+          });
+          if (res.ok) {
+            const updated = await res.json();
+            const cat = categories.find((c) => c.id === categoryId);
+            if (cat && cat.treatments) {
+              const idx = cat.treatments.findIndex((tr) => tr.id === existing.id);
+              if (idx >= 0) cat.treatments[idx] = updated;
+            }
+            renderList();
+            close();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            alert('שגיאה בעדכון: ' + (err.error || res.statusText));
+          }
+        } else {
+          const res = await fetch(`${API_URL}/api/service-categories/${categoryId}/treatments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, durationMinutes, bufferMinutes }),
+          });
+          if (res.ok) {
+            const created = await res.json();
+            const cat = categories.find((c) => c.id === categoryId);
+            if (cat) {
+              if (!cat.treatments) cat.treatments = [];
+              cat.treatments.push(created);
+            }
+            renderList();
+            close();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            alert('שגיאה בהוספה: ' + (err.error || res.statusText));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert('שגיאה בשמירה.');
+      }
+    });
+  }
+
+  async function deleteTreatmentConfirm(categoryId, treatmentId) {
+    if (!confirm('למחוק סוג טיפול זה?')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/service-categories/${categoryId}/treatments/${treatmentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        const cat = categories.find((c) => c.id === categoryId);
+        if (cat && cat.treatments) cat.treatments = cat.treatments.filter((t) => t.id !== treatmentId);
+        renderList();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('שגיאה במחיקה: ' + (err.error || res.statusText));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('שגיאה במחיקה.');
+    }
   }
 
   function escapeHtml(text) {
@@ -244,6 +481,10 @@ export async function createServiceCategoriesPanel() {
   }
 
   list.addEventListener('click', (e) => {
+    if (e.target.closest('.service-categories-treatments-wrap')) {
+      handleTreatmentListClick(e);
+      return;
+    }
     const editBtn = e.target.closest('.service-categories-edit-btn');
     const deleteBtn = e.target.closest('.service-categories-delete-btn');
     if (editBtn) openEditModal(editBtn.dataset.id);

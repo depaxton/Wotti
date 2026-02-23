@@ -177,7 +177,7 @@ export function renderAppointmentsList(appointments, subtab) {
 /**
  * Open popup to add a manual appointment (no phone number).
  * Required: name, time, duration, and date (by day of week or exact date).
- * Optional: title, notes. Duration is free (any minutes).
+ * Optional: category + treatment (from service categories) – sets duration and title; otherwise generic "פגישה".
  */
 function openAddManualPopup(onSave) {
   const today = getCurrentDate();
@@ -199,6 +199,14 @@ function openAddManualPopup(onSave) {
       <div class="appointment-edit-body">
         <label for="add-manual-name">שם *</label>
         <input type="text" id="add-manual-name" placeholder="שם הלקוח / המטופל" required />
+        <label for="add-manual-category">בחירת קטגוריה</label>
+        <select id="add-manual-category" class="add-manual-select">
+          <option value="">— בחר קטגוריה —</option>
+        </select>
+        <label for="add-manual-treatment">בחירת טיפול</label>
+        <select id="add-manual-treatment" class="add-manual-select" disabled>
+          <option value="">— בחר טיפול —</option>
+        </select>
         <label for="add-manual-time">שעה *</label>
         <input type="time" id="add-manual-time" required />
         <label for="add-manual-duration">משך (דקות) *</label>
@@ -222,8 +230,6 @@ function openAddManualPopup(onSave) {
             <input type="date" id="add-manual-date" min="${todayStr}" />
           </div>
         </fieldset>
-        <label for="add-manual-title">שירות / כותרת</label>
-        <input type="text" id="add-manual-title" placeholder="פגישה" value="פגישה" />
         <label for="add-manual-notes">הערות</label>
         <textarea id="add-manual-notes" rows="3" placeholder="הערות..."></textarea>
       </div>
@@ -238,6 +244,68 @@ function openAddManualPopup(onSave) {
     overlay.remove();
     document.body.style.overflow = '';
   };
+
+  const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+  const categorySelect = overlay.querySelector('#add-manual-category');
+  const treatmentSelect = overlay.querySelector('#add-manual-treatment');
+  const durationInput = overlay.querySelector('#add-manual-duration');
+
+  categorySelect.addEventListener('change', () => {
+    const categoryId = categorySelect.value.trim();
+    treatmentSelect.innerHTML = '<option value="">— בחר טיפול —</option>';
+    treatmentSelect.disabled = true;
+    durationInput.value = '60';
+    if (!categoryId) return;
+    const cat = categorySelect.selectedOptions[0]?.dataset?.category;
+    if (!cat) return;
+    let category;
+    try {
+      category = cat ? JSON.parse(cat) : null;
+    } catch (_) {
+      category = null;
+    }
+    if (!category?.treatments?.length) return;
+    treatmentSelect.disabled = false;
+    category.treatments.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = (t.name || '').trim() || t.id;
+      opt.dataset.durationMinutes = String(t.durationMinutes != null ? t.durationMinutes : 30);
+      treatmentSelect.appendChild(opt);
+    });
+  });
+
+  treatmentSelect.addEventListener('change', () => {
+    const opt = treatmentSelect.selectedOptions[0];
+    if (!opt || !opt.value) {
+      durationInput.value = '60';
+      return;
+    }
+    const min = parseInt(opt.dataset.durationMinutes, 10);
+    durationInput.value = Number.isFinite(min) && min >= 1 ? min : 60;
+  });
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/service-categories`);
+      const data = res.ok ? await res.json() : {};
+      const categories = Array.isArray(data?.categories) ? data.categories : [];
+      const filtered = categories.filter((c) => (c.name || '').trim() !== 'שירות כותרת');
+      categorySelect.innerHTML = '<option value="">— בחר קטגוריה —</option>';
+      filtered.forEach((cat) => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = (cat.name || '').trim() || cat.id;
+        opt.dataset.category = JSON.stringify(cat);
+        categorySelect.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('Could not load service categories:', e);
+    }
+  })();
 
   const byDay = overlay.querySelector('.add-manual-date-by-day');
   const byDate = overlay.querySelector('.add-manual-date-by-date');
@@ -258,14 +326,13 @@ function openAddManualPopup(onSave) {
   overlay.querySelector('.appointment-add-manual-submit').addEventListener('click', async () => {
     const nameInput = overlay.querySelector('#add-manual-name');
     const timeInput = overlay.querySelector('#add-manual-time');
-    const durationInput = overlay.querySelector('#add-manual-duration');
+    const durationInputEl = overlay.querySelector('#add-manual-duration');
     const dateInput = overlay.querySelector('#add-manual-date');
     const daySelect = overlay.querySelector('#add-manual-day');
-    const titleInput = overlay.querySelector('#add-manual-title');
     const notesInput = overlay.querySelector('#add-manual-notes');
     const name = nameInput.value.trim();
     const time = timeInput.value.trim();
-    const durationVal = Number(durationInput.value);
+    const durationVal = Number(durationInputEl.value);
     const duration = Number.isFinite(durationVal) && durationVal >= 1 ? Math.round(durationVal) : 60;
     const dateMode = overlay.querySelector('input[name="add-manual-datemode"]:checked').value;
     const dateStr = dateInput.value.trim();
@@ -282,14 +349,29 @@ function openAddManualPopup(onSave) {
       dateInput.focus();
       return;
     }
+    let title = 'פגישה';
+    let categoryId = null;
+    const catOpt = categorySelect.selectedOptions[0];
+    const trtOpt = treatmentSelect.selectedOptions[0];
+    if (catOpt?.value && trtOpt?.value && catOpt.dataset.category) {
+      try {
+        const category = JSON.parse(catOpt.dataset.category);
+        categoryId = category.id;
+        const treatment = (category.treatments || []).find((t) => t.id === trtOpt.value);
+        const catName = (category.name || '').trim() || 'שירות';
+        const trtName = treatment ? ((treatment.name || '').trim() || 'טיפול') : 'טיפול';
+        title = `${catName} - ${trtName}`;
+      } catch (_) {}
+    }
     const newReminder = {
       id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       time,
       duration,
-      title: titleInput.value.trim() || 'פגישה',
+      title,
       notes: notesInput.value.trim(),
       clientName: name
     };
+    if (categoryId) newReminder.categoryId = categoryId;
     if (dateMode === 'date') {
       newReminder.date = dateStr;
       newReminder.day = '';
@@ -298,9 +380,6 @@ function openAddManualPopup(onSave) {
       newReminder.date = null;
     }
 
-    const API_URL = window.location.hostname === 'localhost'
-      ? 'http://localhost:5000'
-      : `${window.location.protocol}//${window.location.hostname}:5000`;
     try {
       const existingRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(MANUAL_PHONE)}/reminders`);
       const existing = existingRes.ok ? await existingRes.json() : [];

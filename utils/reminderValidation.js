@@ -131,6 +131,8 @@ export function normalizeReminder(reminder) {
     type: reminder.type || 'one-time',
     title: reminder.title ?? null,
     categoryId: reminder.categoryId ?? null,
+    treatmentId: reminder.treatmentId ?? null,
+    bufferMinutes: reminder.bufferMinutes ?? null,
     preReminder: Array.isArray(reminder.preReminder) && reminder.preReminder.length > 0 ? reminder.preReminder : DEFAULT_PRE_REMINDERS,
     // Status fields are initialized separately
     preReminderStatus: reminder.preReminderStatus || {},

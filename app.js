@@ -49,6 +49,12 @@ app.get('/health', (req, res) => {
 // Mount routes
 app.use("/api", apiRoutes);
 
+// SPA fallback: serve index.html for any non-API, non-file GET request
+// so URLs like /ai-settings or /profile load the app instead of 404
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   logError("Request error", err);

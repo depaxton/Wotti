@@ -469,6 +469,32 @@ export async function refreshAutoMode(req, res) {
 }
 
 /**
+ * Update auto mode config (trigger words: activation, exit from user, exit from operator)
+ * POST /api/gemini/settings/auto-mode-config
+ * Body: { activationWords?: string, exitWordsFromUser?: string, exitWordsFromOperator?: string }
+ */
+export async function updateAutoModeConfig(req, res) {
+  try {
+    const { activationWords, exitWordsFromUser, exitWordsFromOperator } = req.body || {};
+    const updated = geminiConversationService.updateAutoModeConfig({
+      ...(activationWords !== undefined && { activationWords: String(activationWords) }),
+      ...(exitWordsFromUser !== undefined && { exitWordsFromUser: String(exitWordsFromUser) }),
+      ...(exitWordsFromOperator !== undefined && { exitWordsFromOperator: String(exitWordsFromOperator) }),
+    });
+    return res.json({
+      success: !!updated,
+      ...(updated ? {} : { error: 'Failed to save auto mode config' }),
+    });
+  } catch (error) {
+    logError('❌ Error in updateAutoModeConfig controller:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
+/**
  * Get finished users
  * GET /api/gemini/finished-users
  */

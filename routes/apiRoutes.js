@@ -100,6 +100,7 @@ router.get("/gemini/mode", geminiController.getMode);
 router.post("/gemini/mode/manual", geminiController.setManualMode);
 router.post("/gemini/mode/auto", geminiController.setAutoMode);
 router.post("/gemini/mode/refresh", geminiController.refreshAutoMode);
+router.post("/gemini/settings/auto-mode-config", geminiController.updateAutoModeConfig);
 router.get("/gemini/finished-users", geminiController.getFinishedUsers);
 router.delete("/gemini/finished-users/:userId", geminiController.deleteFinishedUser);
 router.get("/gemini/auto-messages", geminiController.getAutoMessages);
@@ -132,6 +133,9 @@ router.get("/service-categories", serviceCategoriesController.getCategories);
 router.post("/service-categories", serviceCategoriesController.postCategory);
 router.put("/service-categories/:id", serviceCategoriesController.putCategory);
 router.delete("/service-categories/:id", serviceCategoriesController.deleteCategoryController);
+router.post("/service-categories/:id/treatments", serviceCategoriesController.postTreatment);
+router.put("/service-categories/:id/treatments/:tid", serviceCategoriesController.putTreatment);
+router.delete("/service-categories/:id/treatments/:tid", serviceCategoriesController.deleteTreatmentController);
 
 // Ready messages (הודעות מוכנות)
 router.get("/ready-messages", readyMessagesController.getMessagesController);

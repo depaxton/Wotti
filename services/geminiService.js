@@ -186,7 +186,8 @@ export async function generateText(prompt, options = {}) {
 
     const response = await result.response;
     let text = response.text();
-    text = await processAiResponse(text, options.context || {});
+    const processed = await processAiResponse(text, options.context || {});
+    text = processed.text;
 
     return { success: true, text };
   } catch (error) {
@@ -242,7 +243,8 @@ export async function generateWithHistory(history = [], newPrompt, options = {})
 
     const response = await result.response;
     let text = response.text();
-    text = await processAiResponse(text, options.context || {});
+    const processed = await processAiResponse(text, options.context || {});
+    text = processed.text;
 
     // עדכון ההיסטוריה - ללא ההוראות כי הן נשלחות כ-System Instructions
     const updatedHistory = [

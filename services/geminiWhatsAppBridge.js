@@ -46,7 +46,7 @@ function normalizeUserId(rawId) {
  * @returns {Promise<{handled: boolean, error?: string}>} האם הטופלנו בהודעה (AI ענה)
  */
 export async function handleIncomingMessage(message) {
-  if (!message || message.fromMe) {
+  if (!message) {
     return { handled: false };
   }
 
@@ -57,13 +57,57 @@ export async function handleIncomingMessage(message) {
   }
 
   const normalizedFrom = normalizeUserId(rawFrom);
-  const canonicalUserId = geminiConversationService.isUserActive?.(rawFrom)
+
+  // הודעה מהמפעיל (מאיתנו) – אם בשיחה פעילה עם AI ומופיעה מילת יציאה, עוצרים את השיחה
+  if (message.fromMe) {
+    const canonicalUserId = geminiConversationService.isUserActive?.(rawFrom)
+      ? rawFrom
+      : geminiConversationService.isUserActive?.(normalizedFrom)
+        ? normalizedFrom
+        : null;
+    if (canonicalUserId && geminiConversationService.shouldExitByOperatorWords?.(messageText)) {
+      geminiConversationService.stopConversation(canonicalUserId, false);
+      logInfo(`🚪 [Gemini Bridge] Operator said exit word – conversation stopped with ${rawFrom}`);
+      return { handled: true };
+    }
+    return { handled: false };
+  }
+
+  let canonicalUserId = geminiConversationService.isUserActive?.(rawFrom)
     ? rawFrom
     : geminiConversationService.isUserActive?.(normalizedFrom)
       ? normalizedFrom
       : null;
+
+  let justActivated = false;
   if (!canonicalUserId) {
-    return { handled: false };
+    const activated = await geminiConversationService.tryActivateByWords?.(rawFrom, messageText);
+    if (activated?.activated && activated.canonicalUserId) {
+      canonicalUserId = activated.canonicalUserId;
+      justActivated = true;
+    } else {
+      return { handled: false };
+    }
+  }
+
+  if (geminiConversationService.shouldExitByUserWords?.(messageText)) {
+    geminiConversationService.stopConversation(canonicalUserId, false);
+    logInfo(`🚪 [Gemini Bridge] User said exit word – conversation stopped with ${rawFrom}`);
+    return { handled: true };
+  }
+
+  // באירוע הודעה מהלקוח: קוראים את השיחה ובודקים אם ההודעה האחרונה שלנו מכילה מילת טריגר יציאה
+  const operatorSaidExit = await geminiConversationService.didOperatorSayExitInLastMessages?.(canonicalUserId);
+  if (operatorSaidExit) {
+    geminiConversationService.stopConversation(canonicalUserId, false);
+    logInfo(`🚪 [Gemini Bridge] Operator exit word in last message – conversation stopped with ${rawFrom}, not responding`);
+    return { handled: true };
+  }
+
+  // הודעה שהפעילה את השיחה – startConversation כבר שלח תשובה, לא לעבד שוב (למנוע תגובה כפולה)
+  if (justActivated) {
+    logInfo(`✅ [Gemini Bridge] Conversation just activated for ${rawFrom}, skipping duplicate processing`);
+    return { handled: true };
   }
 
   logInfo(`🤖 [Gemini Bridge] Processing message from active user ${rawFrom}`);
@@ -86,6 +130,14 @@ export async function handleIncomingMessage(message) {
       return { handled: true, error: 'Client not available' };
     }
 
+    const stillActive =
+      geminiConversationService.isUserActive?.(canonicalUserId) ||
+      geminiConversationService.isUserActive?.(normalizedFrom);
+    if (!stillActive) {
+      logInfo(`🚪 [Gemini Bridge] User no longer active (e.g. said exit word), not sending AI response to ${rawFrom}`);
+      return { handled: true };
+    }
+
     if (result.isManualTakeover) {
       geminiConversationService.stopConversation(canonicalUserId, false);
       logInfo(`🔄 [Gemini Bridge] Manual takeover - stopped conversation with ${rawFrom}`);
@@ -105,12 +157,22 @@ export async function handleIncomingMessage(message) {
     }
 
     if (result.isFunctionCall && result.messages && result.messages.length > 0) {
+      let shouldStopConversation = false;
       for (const msg of result.messages) {
+        if (
+          !geminiConversationService.isUserActive?.(canonicalUserId) &&
+          !geminiConversationService.isUserActive?.(normalizedFrom)
+        ) break;
         const text = msg.text || '';
         if (text) {
           const processed = await processAiResponse(text, { userId: canonicalUserId });
-          await client.sendMessage(rawFrom, processed, { sendSeen: false });
+          await client.sendMessage(rawFrom, processed.text, { sendSeen: false });
+          if (processed.stopConversation) shouldStopConversation = true;
         }
+      }
+      if (shouldStopConversation) {
+        geminiConversationService.stopConversation(canonicalUserId, true);
+        logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${rawFrom}`);
       }
       logInfo(`✅ [Gemini Bridge] Sent ${result.messages.length} predefined messages to ${rawFrom}`);
       return { handled: true };
@@ -120,8 +182,21 @@ export async function handleIncomingMessage(message) {
       return { handled: true };
     }
 
-    const processedText = await processAiResponse(result.response, { userId: canonicalUserId });
-    await client.sendMessage(rawFrom, processedText, { sendSeen: false });
+    if (
+      !geminiConversationService.isUserActive?.(canonicalUserId) &&
+      !geminiConversationService.isUserActive?.(normalizedFrom)
+    ) {
+      logInfo(`🚪 [Gemini Bridge] User no longer active, not sending final AI response to ${rawFrom}`);
+      return { handled: true };
+    }
+    const processed = await processAiResponse(result.response, { userId: canonicalUserId });
+    await client.sendMessage(rawFrom, processed.text, { sendSeen: false });
+    const isBookingSuccess =
+      processed.stopConversation || (processed.text && processed.text.includes('התור נקבע בהצלחה'));
+    if (isBookingSuccess) {
+      geminiConversationService.stopConversation(canonicalUserId, true);
+      logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${rawFrom}`);
+    }
     logInfo(`✅ [Gemini Bridge] Sent AI response to ${rawFrom}`);
 
     return { handled: true };
@@ -159,7 +234,11 @@ export async function sendGeminiResponseToUser(userId, responseText) {
       return { success: false, error: 'WhatsApp client not available' };
     }
     const processed = await processAiResponse(responseText || '', { userId });
-    await client.sendMessage(userId, processed, { sendSeen: false });
+    await client.sendMessage(userId, processed.text, { sendSeen: false });
+    if (processed.stopConversation) {
+      geminiConversationService.stopConversation(userId, true);
+      logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${userId}`);
+    }
     return { success: true };
   } catch (err) {
     logError('❌ [Gemini Bridge] sendGeminiResponseToUser error:', err);

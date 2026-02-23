@@ -24,6 +24,15 @@ import { fetchWithETagSmart } from "./utils/etagCache.js";
 
 // Initialize the app
 document.addEventListener("DOMContentLoaded", () => {
+  // If loaded with a path (e.g. /ai-settings) instead of hash, redirect to /#/ai-settings
+  // so the app loads correctly and hash routing works
+  const pathname = window.location.pathname || "";
+  const cleanPath = pathname.replace(/^\/+|\/+$/g, "");
+  if (cleanPath && cleanPath !== "index.html") {
+    window.location.replace(window.location.origin + "/#" + (cleanPath ? "/" + cleanPath : ""));
+    return;
+  }
+
   // Initialize Google Analytics
   initAnalytics();
   
@@ -36,8 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
   renderContacts(); // Render empty/fake contacts initially
   initializeContactsSearch(); // Initialize search functionality
   initContactsSidebarTabs(); // Tabs: אנשי קשר | תורים (default תורים on mobile)
-  initSideMenu();
+  // QR/placeholder first so it exists before SideMenu opens a panel from hash (avoids blank right side)
   initQRCodeDisplay();
+  initSideMenu();
   initContactsLoader();
   initHebrewFontDetection(); // Initialize Hebrew font detection
   
@@ -55,6 +65,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load contacts from JSON immediately on page load (before login)
   loadContactsFromJSON();
+
+  // When returning to home from a menu panel, re-initialize QR/status in the placeholder
+  document.addEventListener("chatPlaceholderRestored", () => {
+    initQRCodeDisplay();
+  });
 
   // Listen for contact selection to show chat interface
   document.addEventListener("contactSelected", async (e) => {

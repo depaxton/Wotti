@@ -271,3 +271,170 @@
 .service-categories-modal-save:hover {
   opacity: 0.9;
 }
+
+/* סוגי טיפולים תחת קטגוריה */
+.service-categories-treatments-wrap {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.service-categories-treatments-title {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.service-categories-treatments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.service-categories-treatments-empty {
+  font-size: 0.85rem;
+  color: #64748b;
+  padding: 8px 0;
+}
+
+.service-categories-treatment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.service-categories-treatment-name {
+  flex: 1 1 100%;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  min-width: 80px;
+}
+.service-categories-treatment-name:hover {
+  color: #128C7E;
+}
+
+.service-categories-treatment-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.service-categories-stepper-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.service-categories-stepper-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.service-categories-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.service-categories-stepper-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.service-categories-stepper-btn:hover {
+  background: rgba(18, 140, 126, 0.15);
+  color: #128C7E;
+}
+
+.service-categories-stepper-input {
+  width: 48px;
+  padding: 6px 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  background: white;
+  -moz-appearance: textfield;
+}
+.service-categories-stepper-input::-webkit-outer-spin-button,
+.service-categories-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.service-categories-treatment-actions {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.service-categories-treatment-edit-btn,
+.service-categories-treatment-delete-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(18, 140, 126, 0.1);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.service-categories-treatment-edit-btn:hover {
+  background: rgba(18, 140, 126, 0.2);
+}
+.service-categories-treatment-delete-btn {
+  background: rgba(220, 38, 38, 0.1);
+}
+.service-categories-treatment-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+.service-categories-add-treatment-btn {
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #128C7E;
+  background: rgba(18, 140, 126, 0.08);
+  border: 1px dashed rgba(18, 140, 126, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.service-categories-add-treatment-btn:hover {
+  background: rgba(18, 140, 126, 0.12);
+}
+
+/* מודל הוספת/עריכת סוג טיפול - סטיפרים בשורה */
+.service-categories-stepper-inline {
+  margin-top: 4px;
+}
+.service-categories-stepper-inline .service-categories-stepper-input {
+  width: 56px;
+}
+.service-categories-stepper-inline .service-categories-stepper-btn {
+  width: 36px;
+  height: 36px;
+}

@@ -10,6 +10,9 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  addTreatment,
+  updateTreatment,
+  deleteTreatment,
 } from '../services/serviceCategoriesService.js';
 import { logError } from '../utils/logger.js';
 
@@ -74,5 +77,60 @@ export async function deleteCategoryController(req, res) {
   } catch (error) {
     logError('deleteCategory', error);
     res.status(500).json({ error: 'Failed to delete service category' });
+  }
+}
+
+/**
+ * POST /api/service-categories/:id/treatments
+ * Body: { name, durationMinutes, bufferMinutes? }
+ */
+export async function postTreatment(req, res) {
+  try {
+    const { id: categoryId } = req.params;
+    const body = req.body || {};
+    const treatment = await addTreatment(categoryId, body);
+    if (!treatment) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.status(201).json(treatment);
+  } catch (error) {
+    logError('postTreatment', error);
+    res.status(500).json({ error: 'Failed to add treatment' });
+  }
+}
+
+/**
+ * PUT /api/service-categories/:id/treatments/:tid
+ * Body: { name?, durationMinutes?, bufferMinutes? }
+ */
+export async function putTreatment(req, res) {
+  try {
+    const { id: categoryId, tid: treatmentId } = req.params;
+    const updates = req.body || {};
+    const treatment = await updateTreatment(categoryId, treatmentId, updates);
+    if (!treatment) {
+      return res.status(404).json({ error: 'Treatment or category not found' });
+    }
+    res.json(treatment);
+  } catch (error) {
+    logError('putTreatment', error);
+    res.status(500).json({ error: 'Failed to update treatment' });
+  }
+}
+
+/**
+ * DELETE /api/service-categories/:id/treatments/:tid
+ */
+export async function deleteTreatmentController(req, res) {
+  try {
+    const { id: categoryId, tid: treatmentId } = req.params;
+    const deleted = await deleteTreatment(categoryId, treatmentId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Treatment or category not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    logError('deleteTreatment', error);
+    res.status(500).json({ error: 'Failed to delete treatment' });
   }
 }

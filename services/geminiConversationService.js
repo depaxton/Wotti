@@ -60,6 +60,9 @@ function loadGeminiSettings() {
     autoModeConfig: {
       maxRecentChats: 5,
       maxMessageExchanges: 10,
+      activationWords: "",
+      exitWordsFromUser: "",
+      exitWordsFromOperator: "",
     },
     updatedAt: null,
   };
@@ -74,6 +77,131 @@ function saveGeminiSettings(settings) {
     logError("❌ Error saving gemini settings:", err);
     return false;
   }
+}
+
+/** מפרסר מחרוזת מילים מופרדות בפסיקים למערך מנוקה */
+function parseWords(str) {
+  if (str == null || typeof str !== "string") return [];
+  return str
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** בודק אם הטקסט מכיל אחת מהמילים (includes) */
+function messageContainsAnyWord(text, wordsArray) {
+  if (!text || !Array.isArray(wordsArray) || wordsArray.length === 0) return false;
+  const lower = text.toLowerCase();
+  return wordsArray.some((word) => word && lower.includes(word.toLowerCase()));
+}
+
+function getActivationWords() {
+  const settings = loadGeminiSettings();
+  const raw = settings.autoModeConfig?.activationWords;
+  return Array.isArray(raw) ? raw.filter((w) => w && String(w).trim()) : parseWords(raw);
+}
+
+function getExitWordsFromUser() {
+  const settings = loadGeminiSettings();
+  const raw = settings.autoModeConfig?.exitWordsFromUser;
+  return Array.isArray(raw) ? raw.filter((w) => w && String(w).trim()) : parseWords(raw);
+}
+
+function getExitWordsFromOperator() {
+  const settings = loadGeminiSettings();
+  const raw = settings.autoModeConfig?.exitWordsFromOperator;
+  return Array.isArray(raw) ? raw.filter((w) => w && String(w).trim()) : parseWords(raw);
+}
+
+/**
+ * במצב אוטומטי: אם ההודעה מכילה מילת הפעלה והמשתמש לא פעיל/לא גמור – מפעיל שיחה ומחזיר canonicalUserId
+ * @returns {Promise<{activated: boolean, canonicalUserId?: string}>}
+ */
+export async function tryActivateByWords(userId, messageText) {
+  const settings = loadGeminiSettings();
+  if (settings.mode !== "auto") return { activated: false };
+
+  const words = getActivationWords();
+  if (words.length === 0) return { activated: false };
+
+  if (!messageContainsAnyWord(messageText, words)) return { activated: false };
+
+  const normalized = normalizeUserId(userId);
+  const idToUse = userId || normalized;
+  if (isUserActive(userId) || isUserActive(normalized)) {
+    const canonical = isUserActive(userId) ? userId : normalized;
+    return { activated: false, canonicalUserId: canonical };
+  }
+  if (isUserFinished(userId) || isUserFinished(normalized)) return { activated: false };
+
+  try {
+    const client = getClient();
+    if (!client) return { activated: false };
+
+    let userName = "";
+    let userNumber = (idToUse || "").split("@")[0] || "";
+    try {
+      const chat = await client.getChatById(idToUse);
+      if (chat) {
+        const contact = await chat.getContact();
+        userName = contact.pushname || contact.name || "";
+        userNumber = contact.number || userNumber;
+      }
+    } catch (e) {
+      logWarn(`⚠️ Could not get contact for ${idToUse}, using id only`);
+    }
+
+    const result = await startConversationAnonymous(idToUse, userName, userNumber);
+    if (result.success) {
+      logInfo(`✅ [Auto words] Activated conversation with ${idToUse} (message contained trigger word)`);
+      return { activated: true, canonicalUserId: idToUse };
+    }
+  } catch (err) {
+    logError("❌ tryActivateByWords error:", err);
+  }
+  return { activated: false };
+}
+
+/** במצב אוטומטי: האם הודעת המשתמש מכילה מילת יציאה (להסרת AI) */
+export function shouldExitByUserWords(messageText) {
+  const settings = loadGeminiSettings();
+  if (settings.mode !== "auto") return false;
+  return messageContainsAnyWord(messageText, getExitWordsFromUser());
+}
+
+/** במצב אוטומטי: האם הודעת המפעיל מכילה מילת יציאה (להסרת AI מהשיחה) */
+export function shouldExitByOperatorWords(messageText) {
+  const settings = loadGeminiSettings();
+  if (settings.mode !== "auto") return false;
+  return messageContainsAnyWord(messageText, getExitWordsFromOperator());
+}
+
+/**
+ * בודק אם ההודעה האחרונה מהצד שלנו (המפעיל) מכילה מילת טריגר יציאה.
+ * משמש באירוע "הודעה נכנסת מהלקוח" – קוראים את השיחה, בודקים את ההודעה האחרונה שלנו, ואם יש מילת יציאה לא מגיבים ומוציאים מהשיחות הפעילות.
+ * @param {string} userId - מזהה הצ'אט (הלקוח)
+ * @returns {Promise<boolean>} true אם נמצאה מילת יציאה – יש להפסיק שיחה ולא להגיב
+ */
+export async function didOperatorSayExitInLastMessages(userId) {
+  const settings = loadGeminiSettings();
+  if (settings.mode !== "auto") return false;
+  const history = await loadChatHistoryFromWhatsApp(userId, 60);
+  const ourMessages = history.filter((m) => m.role === "model");
+  const lastOurs = ourMessages.length > 0 ? ourMessages[ourMessages.length - 1] : null;
+  return lastOurs?.text ? shouldExitByOperatorWords(lastOurs.text) : false;
+}
+
+/**
+ * עדכון חלקי של autoModeConfig (למשל activationWords, exitWordsFromUser, exitWordsFromOperator)
+ * @param {Object} partial - { activationWords?: string, exitWordsFromUser?: string, exitWordsFromOperator?: string }
+ */
+export function updateAutoModeConfig(partial) {
+  const settings = loadGeminiSettings();
+  if (!settings.autoModeConfig) settings.autoModeConfig = {};
+  if (partial.activationWords !== undefined) settings.autoModeConfig.activationWords = partial.activationWords;
+  if (partial.exitWordsFromUser !== undefined) settings.autoModeConfig.exitWordsFromUser = partial.exitWordsFromUser;
+  if (partial.exitWordsFromOperator !== undefined) settings.autoModeConfig.exitWordsFromOperator = partial.exitWordsFromOperator;
+  return saveGeminiSettings(settings);
 }
 
 // =============== MESSAGE BATCHING SYSTEM ===============
@@ -221,6 +349,16 @@ function loadFinishedUsers() {
     logError("❌ Error loading finished users:", err);
   }
   return {};
+}
+
+/** מנרמל מזהה WhatsApp: @c.us -> @s.whatsapp.net (להתאמה ל-activeUsers) */
+function normalizeUserId(rawId) {
+  if (!rawId || typeof rawId !== "string") return "";
+  const trimmed = rawId.trim();
+  if (trimmed.endsWith("@c.us")) {
+    return trimmed.replace(/@c\.us$/, "@s.whatsapp.net");
+  }
+  return trimmed;
 }
 
 /** מנרמל userId לפורמט מספר בלבד למטרות השוואה */
@@ -684,102 +822,13 @@ export async function setAutoMode() {
     return { success: false, error: "Failed to save settings" };
   }
 
-  const result = await activateAutoModeChats();
-  startAutoModeInterval();
-
-  logInfo(`✅ Switched to AUTO mode - activated ${result.activatedCount} users, interval started`);
+  logInfo(`✅ Switched to AUTO mode (message/trigger-words only, no interval)`);
   return {
     success: true,
     mode: "auto",
-    activatedUsers: result.activatedUsers,
-    activatedCount: result.activatedCount,
+    activatedUsers: [],
+    activatedCount: 0,
   };
-}
-
-async function activateAutoModeChats() {
-  try {
-    const client = getClient();
-    if (!client) {
-      logError("❌ WhatsApp client not available for auto mode");
-      return { activatedUsers: [], activatedCount: 0 };
-    }
-
-    const settings = loadGeminiSettings();
-    const maxRecentChats = settings.autoModeConfig?.maxRecentChats || 5;
-    const maxMessageExchanges = settings.autoModeConfig?.maxMessageExchanges || 10;
-
-    logInfo(`🔍 Auto mode: Checking last ${maxRecentChats} chats with less than ${maxMessageExchanges} messages...`);
-
-    const chats = await client.getChats();
-    const personalChats = chats.filter((chat) => !chat.isGroup);
-    const recentChats = personalChats.slice(0, maxRecentChats);
-
-    logInfo(`📋 Found ${recentChats.length} personal chats to check`);
-
-    const activatedUsers = [];
-
-    for (const chat of recentChats) {
-      const chatId = chat.id._serialized;
-      const chatName = chat.name || chatId.split("@")[0];
-
-      let messageCount = 0;
-      try {
-        const messages = await chat.fetchMessages({ limit: 20 });
-        messageCount = messages.length;
-        logInfo(`📊 Chat "${chatName}" (${chatId}): ${messageCount} messages`);
-      } catch (fetchErr) {
-        logWarn(`⚠️ Could not fetch messages for ${chatId}: ${fetchErr.message}`);
-        continue;
-      }
-
-      if (isUserActive(chatId)) {
-        logInfo(`⏭️ ALREADY ACTIVE: "${chatName}" - skipping`);
-        continue;
-      }
-
-      if (isUserFinished(chatId)) {
-        logInfo(`✅ FINISHED: "${chatName}" - skipping (user already finished)`);
-        continue;
-      }
-
-      if (messageCount < maxMessageExchanges) {
-        let userName = chat.name || "";
-        let userNumber = chatId.split("@")[0];
-
-        try {
-          const contact = await chat.getContact();
-          userName = contact.pushname || contact.name || userName;
-          userNumber = contact.number || userNumber;
-        } catch (e) {
-          // נמשיך עם מה שיש לנו
-        }
-
-        const nameToCheck = (userName || chatName || "").toLowerCase();
-        if (nameToCheck.includes("אמא") || nameToCheck.includes("תלמיד")) {
-          logInfo(`🚫 BLOCKED: "${userName || chatName}" - contains "אמא" or "תלמיד", skipping`);
-          continue;
-        }
-
-        const result = await startConversationAnonymous(chatId, userName, userNumber);
-
-        if (result.success) {
-          activatedUsers.push({
-            userId: chatId,
-            userName: userName || userNumber,
-            userNumber,
-            messageCount,
-          });
-          logInfo(`✅ NEW USER ADDED: "${userName || userNumber}" - ${messageCount} messages`);
-        }
-      }
-    }
-
-    logInfo(`\n✅ Auto mode complete: ${activatedUsers.length} users activated`);
-    return { activatedUsers, activatedCount: activatedUsers.length };
-  } catch (err) {
-    logError("❌ Error activating auto mode chats:", err);
-    return { activatedUsers: [], activatedCount: 0 };
-  }
 }
 
 export async function refreshAutoMode() {
@@ -787,60 +836,9 @@ export async function refreshAutoMode() {
   if (settings.mode !== "auto") {
     return { success: false, error: "Not in auto mode" };
   }
-
-  const result = await activateAutoModeChats();
-  return {
-    success: true,
-    activatedUsers: result.activatedUsers,
-    activatedCount: result.activatedCount,
-  };
-}
-
-// =============== AUTO MODE INTERVAL ===============
-
-let autoModeIntervalId = null;
-const AUTO_MODE_CHECK_INTERVAL_MS = 40000; // 40 שניות
-
-function startAutoModeInterval() {
-  stopAutoModeInterval();
-
-  logInfo(`⏰ Starting auto mode interval - checking every ${AUTO_MODE_CHECK_INTERVAL_MS / 1000} seconds`);
-
-  autoModeIntervalId = setInterval(async () => {
-    const settings = loadGeminiSettings();
-
-    if (settings.mode !== "auto") {
-      logInfo("⏸️ Auto mode interval: Not in auto mode, skipping check");
-      return;
-    }
-
-    logInfo("🔄 Auto mode interval: Checking for new chats...");
-
-    try {
-      await activateAutoModeChats();
-    } catch (err) {
-      logError("❌ Auto mode interval error:", err);
-    }
-  }, AUTO_MODE_CHECK_INTERVAL_MS);
+  return { success: true, activatedUsers: [], activatedCount: 0 };
 }
 
 function stopAutoModeInterval() {
-  if (autoModeIntervalId) {
-    clearInterval(autoModeIntervalId);
-    autoModeIntervalId = null;
-    logInfo("⏹️ Auto mode interval stopped");
-  }
+  // No longer used; kept for compatibility with setManualMode
 }
-
-export function isAutoModeIntervalRunning() {
-  return autoModeIntervalId !== null;
-}
-
-// התחל את ה-interval אוטומטית כשהמודול נטען
-setTimeout(() => {
-  const settings = loadGeminiSettings();
-  if (settings.mode === "auto") {
-    logInfo("🚀 Auto mode is active on startup, starting interval...");
-    startAutoModeInterval();
-  }
-}, 5000);

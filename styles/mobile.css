@@ -654,6 +654,27 @@
     display: none !important;
   }
 
+  .appointment-edit-overlay {
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .appointment-edit-popup.appointment-add-manual-popup,
+  .appointment-edit-popup.appointment-edit-full-popup {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 12px;
+  }
+
+  .appointment-edit-body .add-manual-select,
+  .appointment-edit-body input[type="text"],
+  .appointment-edit-body input[type="number"],
+  .appointment-edit-body input[type="time"] {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
   .panel-back-button:hover {
     background: var(--color-light-grey);
     color: var(--color-green);

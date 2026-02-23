@@ -2,6 +2,7 @@
 // Handles API request logic for chat endpoints (messages, sending, media, etc.)
 
 import { getClient, isClientReady } from "../services/whatsappClient.js";
+import * as geminiConversationService from "../services/geminiConversationService.js";
 import { logError, logInfo, logWarn } from "../utils/logger.js";
 import { handleETag } from "../utils/etagHelper.js";
 import fs from "fs-extra";
@@ -171,6 +172,17 @@ export const sendMessage = async (req, res) => {
     } else {
       // Send text
       sentMessage = await client.sendMessage(chatId, message);
+    }
+
+    const textSent = (message || "").trim();
+    if (
+      textSent &&
+      geminiConversationService.getCurrentMode?.() === "auto" &&
+      geminiConversationService.shouldExitByOperatorWords?.(textSent) &&
+      geminiConversationService.isUserActive?.(chatId)
+    ) {
+      geminiConversationService.stopConversation(chatId, false);
+      logInfo(`🚪 [Chat] Operator sent exit word – AI removed from active conversation ${chatId}`);
     }
 
     res.json({

@@ -1,8 +1,11 @@
 {
-  "mode": "manual",
+  "mode": "auto",
   "autoModeConfig": {
     "maxRecentChats": 5,
-    "maxMessageExchanges": 10
+    "maxMessageExchanges": 10,
+    "activationWords": "תור , לקבוע ,לשנות תור , לשנות שעה",
+    "exitWordsFromUser": "מספיק , תפסיק , נציג אנושי ,אדם , אנושי",
+    "exitWordsFromOperator": "אני מטפל , העברה אלי ,ביטלתי"
   },
-  "updatedAt": "2026-02-16T02:44:12.056Z"
+  "updatedAt": "2026-02-23T01:24:09.780Z"
 }

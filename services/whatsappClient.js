@@ -401,12 +401,12 @@ function registerEventListeners(clientInstance) {
     qrCodeCallbacks.forEach((callback) => callback(null, "error", error.message));
   });
 
-  // Message event - listen for incoming messages
+  // Message event - listen for incoming messages (כולל הודעות מאיתנו – לצורך מילות טריגר מפעיל ב-Gemini Bridge)
   clientInstance.on("message", async (message) => {
-    if (message.fromMe === true) return;
-
-    logInfo(`New incoming message received from ${message.from}`);
-    hasNewMessage = true;
+    if (!message.fromMe) {
+      logInfo(`New incoming message received from ${message.from}`);
+      hasNewMessage = true;
+    }
 
     for (const handler of incomingMessageHandlers) {
       try {

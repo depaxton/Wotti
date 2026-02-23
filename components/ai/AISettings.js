@@ -145,7 +145,31 @@ export async function createAISettingsPanel() {
   // Load initial data
   loadData(state, apiKeySection, statusSection, instructionsSection, modeSection, startConvSection, activeSection, finishedSection);
 
+  let refreshListsIntervalId = setInterval(async () => {
+    try {
+      const [activeRes, finishedRes] = await Promise.all([
+        fetch(`${API_URL}/api/gemini/active-conversations`),
+        fetch(`${API_URL}/api/gemini/finished-users`),
+      ]);
+      if (activeRes.ok) {
+        const activeData = await activeRes.json();
+        state.activeUsers = activeData.activeUsers || [];
+        updateActiveUsersDisplay(activeSection, state.activeUsers, { state, startConvSection });
+        if (startConvSection && startConvSection._renderFiltered) startConvSection._renderFiltered();
+      }
+      if (finishedRes.ok) {
+        const finishedData = await finishedRes.json();
+        state.finishedUsers = finishedData.finishedUsers || {};
+        updateFinishedUsersDisplay(finishedSection, state.finishedUsers);
+      }
+    } catch (_) {}
+  }, 4000);
+
   function closePanel() {
+    if (refreshListsIntervalId) {
+      clearInterval(refreshListsIntervalId);
+      refreshListsIntervalId = null;
+    }
     // On mobile, remove panel from body
     // On desktop, remove from chat area
     import("../../utils/mobileNavigation.js").then(({ isMobile, showContactsSidebar }) => {
@@ -515,6 +539,29 @@ function createModeSection(state) {
         </svg>
         שמור מצב
       </button>
+      <div class="trigger-words-section">
+        <div class="trigger-words-section-title">מילות טריגר (מצב אוטומטי בלבד)</div>
+        <p class="trigger-words-hint">מילים מופרדות בפסיקים. במצב אוטומטי: מילות הפעלה מכניסות שיחה לפעילות, מילות יציאה מוציאות את ה-AI.</p>
+        <div class="form-group">
+          <label class="form-label" for="activationWordsInput">מילות הפעלה</label>
+          <input type="text" id="activationWordsInput" class="form-input trigger-words-input" placeholder="למשל: תור, קביעה, רוצה לקבוע" autocomplete="off">
+          <p class="form-hint">אם המשתמש שולח הודעה שמכילה אחת מהמילים, השיחה תכנס לשיחות פעילות</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exitWordsFromUserInput">מילות יציאה (מהמשתמש)</label>
+          <input type="text" id="exitWordsFromUserInput" class="form-input trigger-words-input" placeholder="למשל: מספיק, תפסיק, אדם" autocomplete="off">
+          <p class="form-hint">אם המשתמש שולח אחת מהמילים ל-AI, ה-AI ייצא מהשיחה</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exitWordsFromOperatorInput">מילות יציאה (מהמפעיל)</label>
+          <input type="text" id="exitWordsFromOperatorInput" class="form-input trigger-words-input" placeholder="למשל: אני מטפל, העברה אלי" autocomplete="off">
+          <p class="form-hint">אם אתה שולח הודעה ללקוח שמכילה אחת מהמילים, ה-AI ייצא מהשיחה</p>
+        </div>
+        <button type="button" id="saveTriggerWordsBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          שמור מילות טריגר
+        </button>
+      </div>
     </div>
   `;
 
@@ -566,6 +613,53 @@ function createModeSection(state) {
       saveBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> שמור מצב`;
     }
   });
+
+  const activationWordsInput = section.querySelector("#activationWordsInput");
+  const exitWordsFromUserInput = section.querySelector("#exitWordsFromUserInput");
+  const exitWordsFromOperatorInput = section.querySelector("#exitWordsFromOperatorInput");
+  const saveTriggerWordsBtn = section.querySelector("#saveTriggerWordsBtn");
+
+  if (saveTriggerWordsBtn) {
+    saveTriggerWordsBtn.addEventListener("click", async () => {
+      saveTriggerWordsBtn.disabled = true;
+      try {
+        const response = await fetch(`${API_URL}/api/gemini/settings/auto-mode-config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activationWords: (activationWordsInput?.value ?? "").trim(),
+            exitWordsFromUser: (exitWordsFromUserInput?.value ?? "").trim(),
+            exitWordsFromOperator: (exitWordsFromOperatorInput?.value ?? "").trim(),
+          }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          toast.success("מילות הטריגר נשמרו");
+          if (state.settings?.autoModeConfig) {
+            state.settings.autoModeConfig.activationWords = activationWordsInput?.value ?? "";
+            state.settings.autoModeConfig.exitWordsFromUser = exitWordsFromUserInput?.value ?? "";
+            state.settings.autoModeConfig.exitWordsFromOperator = exitWordsFromOperatorInput?.value ?? "";
+          }
+        } else {
+          toast.error(result.error || "שגיאה בשמירה");
+        }
+      } catch (err) {
+        toast.error(err.message || "שגיאה בשמירה");
+      } finally {
+        saveTriggerWordsBtn.disabled = false;
+      }
+    });
+  }
+
+  section._fillTriggerWords = (settings) => {
+    const cfg = settings?.autoModeConfig;
+    const a = cfg?.activationWords;
+    const u = cfg?.exitWordsFromUser;
+    const o = cfg?.exitWordsFromOperator;
+    if (activationWordsInput) activationWordsInput.value = typeof a === "string" ? a : (Array.isArray(a) ? a.join(", ") : "");
+    if (exitWordsFromUserInput) exitWordsFromUserInput.value = typeof u === "string" ? u : (Array.isArray(u) ? u.join(", ") : "");
+    if (exitWordsFromOperatorInput) exitWordsFromOperatorInput.value = typeof o === "string" ? o : (Array.isArray(o) ? o.join(", ") : "");
+  };
 
   return section;
 }
@@ -800,7 +894,7 @@ function createFinishedUsersSection(state) {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
-      משתמשים שהושלמו
+      שיחות לא פעילות
     </div>
     <div id="finishedUsersContainer" class="users-container">
       <div class="loading-text">טוען...</div>
@@ -843,13 +937,14 @@ async function loadData(state, apiKeySection, statusSection, instructionsSection
       if (editor) editor.value = state.instructions;
     }
 
-    // Load mode
+    // Load mode and trigger words
     const modeRes = await fetch(`${API_URL}/api/gemini/mode`);
     if (modeRes.ok) {
       const modeData = await modeRes.json();
       state.mode = modeData.mode || 'manual';
       state.settings = modeData.settings;
       updateModeDisplay(modeSection, state.mode);
+      if (modeSection._fillTriggerWords) modeSection._fillTriggerWords(state.settings);
     }
 
     // Load active users first (so contact list can show who is already active)
@@ -915,16 +1010,16 @@ function updateModeDisplay(section, mode) {
 function updateModeStatus(statusDiv, mode, result = null) {
   if (!statusDiv) return;
   
-  if (mode === 'auto' && result && result.activatedCount !== undefined) {
+  if (mode === 'auto') {
     statusDiv.innerHTML = `
       <div class="mode-status-info">
-        ✅ מצב אוטומטי פעיל - ${result.activatedCount} משתמשים הופעלו
+        ✅ מצב אוטומטי פעיל – כניסה ויציאה משיחות לפי מילות טריגר בלבד
       </div>
     `;
   } else if (mode === 'manual') {
     statusDiv.innerHTML = `
       <div class="mode-status-info">
-        ℹ️ מצב ידני - שיחות יופעלו רק ידנית
+        ℹ️ מצב ידני – שיחות יופעלו רק ידנית
       </div>
     `;
   } else {
@@ -1001,7 +1096,7 @@ function updateFinishedUsersDisplay(section, finishedUsers) {
 
   const users = Object.values(finishedUsers);
   if (users.length === 0) {
-    container.innerHTML = '<div class="empty-state">אין משתמשים שהושלמו</div>';
+    container.innerHTML = '<div class="empty-state">אין שיחות לא פעילות</div>';
     return;
   }
 
@@ -1011,24 +1106,24 @@ function updateFinishedUsersDisplay(section, finishedUsers) {
         <strong>${user.userName || user.userNumber || user.userId}</strong>
         <span class="user-meta">${new Date(user.finishedAt).toLocaleString('he-IL')}</span>
       </div>
-      <button type="button" class="btn btn-small btn-danger" data-user-id="${user.userId}" onclick="deleteFinishedUser('${user.userId}')">
-        מחק
+      <button type="button" class="btn btn-small btn-danger ai-finished-remove-btn" data-user-id="${escapeHtml(user.userId)}">
+        הסר
       </button>
     </div>
   `).join('');
 
-  // Add delete handlers
-  container.querySelectorAll('[data-user-id]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const userId = e.target.dataset.userId;
-      if (confirm('האם אתה בטוח שברצונך למחוק משתמש זה מרשימת המשתמשים שהושלמו?')) {
+  container.querySelectorAll('.ai-finished-remove-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const userId = btn.dataset.userId;
+      if (!userId) return;
+      if (confirm('האם אתה בטוח שברצונך להסיר שיחה זו מרשימת שיחות לא פעילות?')) {
         try {
           const response = await fetch(`${API_URL}/api/gemini/finished-users/${encodeURIComponent(userId)}`, {
             method: 'DELETE'
           });
           const result = await response.json();
           if (result.success) {
-            toast.success('המשתמש נמחק');
+            toast.success('השיחה הוסרה מהרשימה');
             delete finishedUsers[userId];
             updateFinishedUsersDisplay(section, finishedUsers);
           } else {

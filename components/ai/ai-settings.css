@@ -619,6 +619,62 @@
   gap: 6px;
 }
 
+/* Trigger words section (מילות טריגר) */
+.trigger-words-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.trigger-words-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trigger-words-hint {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.trigger-words-section .form-group {
+  margin-bottom: 18px;
+}
+
+.trigger-words-section .form-group:last-of-type {
+  margin-bottom: 20px;
+}
+
+.trigger-words-input.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.trigger-words-input.form-input:focus {
+  outline: none;
+  border-color: #128C7E;
+  box-shadow: 0 0 0 2px rgba(18, 140, 126, 0.15);
+}
+
+.trigger-words-section .form-hint {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.trigger-words-section #saveTriggerWordsBtn {
+  margin-top: 4px;
+}
+
 /* Scrollbar */
 .ai-settings-content::-webkit-scrollbar {
   width: 8px;

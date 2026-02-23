@@ -1,5 +1,6 @@
 {
   "noServicesAvailable": "אין כרגע שירותים זמינים. אנא פנה למנהל.",
+  "noTreatmentsAvailable": "אין סוגי טיפולים מוגדרים לשירות זה. אנא פנה למנהל.",
   "noDateProvided": "לא צוין תאריך. אנא ציין תאריך.",
   "noServiceSelected": "לא נבחר שירות. אנא בחר שירות מהרשימה.",
   "serviceNotFoundRestart": "לא נמצא שירות. אנא התחל מחדש ובחר שירות.",

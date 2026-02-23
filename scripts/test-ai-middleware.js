@@ -80,15 +80,16 @@ async function run() {
   for (const t of tests) {
     try {
       const context = t.context || { userId: '972500000000@c.us' };
-      const output = await processAiResponse(t.input, context);
-      const ok = t.expect(output);
+      const result = await processAiResponse(t.input, context);
+      const text = result?.text ?? result;
+      const ok = t.expect(text);
       if (ok) {
         console.log(`  OK: ${t.name}`);
         passed++;
       } else {
         console.log(`  FAIL: ${t.name}`);
         console.log(`    Input:  ${t.input.slice(0, 60)}...`);
-        console.log(`    Output: ${output.slice(0, 80)}...`);
+        console.log(`    Output: ${String(text).slice(0, 80)}...`);
         failed++;
       }
     } catch (err) {

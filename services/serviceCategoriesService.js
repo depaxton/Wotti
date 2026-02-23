@@ -34,18 +34,43 @@ function generateCategoryId() {
 }
 
 /**
+ * Generate unique treatment ID
+ * @returns {string}
+ */
+function generateTreatmentId() {
+  return `trt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Normalize treatment data (סוג טיפול)
+ * @param {object} raw
+ * @returns {object}
+ */
+function normalizeTreatment(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    id: String(raw.id || generateTreatmentId()),
+    name: String(raw.name || '').trim() || 'טיפול',
+    durationMinutes: Math.max(1, Math.min(480, parseInt(raw.durationMinutes, 10) || 30)),
+    bufferMinutes: Math.max(0, Math.min(60, parseInt(raw.bufferMinutes, 10) || 10)),
+  };
+}
+
+/**
  * Normalize category data
  * @param {object} raw
  * @returns {object}
  */
 function normalizeCategory(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  const treatments = Array.isArray(raw.treatments) ? raw.treatments : [];
   return {
     id: String(raw.id || generateCategoryId()),
     name: String(raw.name || '').trim() || 'שירות',
     durationMinutes: Math.max(5, Math.min(480, parseInt(raw.durationMinutes, 10) || 30)),
     bufferMinutes: Math.max(0, Math.min(60, parseInt(raw.bufferMinutes, 10) || 0)),
     maxPerHour: Math.max(1, Math.min(10, parseInt(raw.maxPerHour, 10) || 1)),
+    treatments: treatments.map(normalizeTreatment).filter(Boolean),
   };
 }
 
@@ -141,6 +166,63 @@ export async function deleteCategory(id) {
   if (filtered.length === categories.length) return false;
   await saveCategories(filtered);
   logInfo(`Deleted service category ${id}`);
+  return true;
+}
+
+/**
+ * Add a treatment to a category
+ * @param {string} categoryId
+ * @param {object} treatment { name, durationMinutes, bufferMinutes }
+ * @returns {Promise<object|null>} the created treatment or null
+ */
+export async function addTreatment(categoryId, treatment) {
+  const categories = await loadCategories();
+  const index = categories.findIndex((c) => c.id === categoryId);
+  if (index === -1) return null;
+  const normalized = normalizeTreatment({ ...treatment, id: undefined });
+  normalized.id = generateTreatmentId();
+  if (!categories[index].treatments) categories[index].treatments = [];
+  categories[index].treatments.push(normalized);
+  await saveCategories(categories);
+  return normalized;
+}
+
+/**
+ * Update a treatment
+ * @param {string} categoryId
+ * @param {string} treatmentId
+ * @param {object} updates
+ * @returns {Promise<object|null>}
+ */
+export async function updateTreatment(categoryId, treatmentId, updates) {
+  const categories = await loadCategories();
+  const catIndex = categories.findIndex((c) => c.id === categoryId);
+  if (catIndex === -1) return null;
+  const treatments = categories[catIndex].treatments || [];
+  const trtIndex = treatments.findIndex((t) => t.id === treatmentId);
+  if (trtIndex === -1) return null;
+  const merged = { ...treatments[trtIndex], ...updates, id: treatmentId };
+  categories[catIndex].treatments[trtIndex] = normalizeTreatment(merged);
+  await saveCategories(categories);
+  return categories[catIndex].treatments[trtIndex];
+}
+
+/**
+ * Delete a treatment
+ * @param {string} categoryId
+ * @param {string} treatmentId
+ * @returns {Promise<boolean>}
+ */
+export async function deleteTreatment(categoryId, treatmentId) {
+  const categories = await loadCategories();
+  const index = categories.findIndex((c) => c.id === categoryId);
+  if (index === -1) return false;
+  const treatments = categories[index].treatments || [];
+  const filtered = treatments.filter((t) => t.id !== treatmentId);
+  if (filtered.length === treatments.length) return false;
+  categories[index].treatments = filtered;
+  await saveCategories(categories);
+  logInfo(`Deleted treatment ${treatmentId} from category ${categoryId}`);
   return true;
 }
 

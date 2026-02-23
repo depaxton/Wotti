@@ -71,6 +71,8 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 const bookingTempState = new Map();
 // Last QUERY_CATEGORIES result per user: { list: [{ id, name }] } – for category_number in QUERY_AVAILABILITY / BOOK_APPOINTMENT
 const lastCategoriesByUser = new Map();
+// Last QUERY_TREATMENTS result per user: { categoryId, list: [{ id, name, durationMinutes, bufferMinutes }] } – for treatment_number
+const lastTreatmentsByUser = new Map();
 // Last LIST_APPOINTMENTS result per user: { list: [{ id, date, time, title }] } – for number= in CANCEL_APPOINTMENT
 const lastAppointmentsListByUser = new Map();
 
@@ -149,6 +151,8 @@ function getHoursForDay(businessHours, dayIndex) {
   return [DEFAULT_BUSINESS_HOURS];
 }
 
+const SLOT_GRANULARITY_MINUTES = 15;
+
 /**
  * Generate candidate slots (HH:MM) based on category: interval = duration + buffer.
  * Example: duration 50 min + buffer 10 min = 60 min between slots → 9:00, 10:00, 11:00...
@@ -181,8 +185,35 @@ function generateSlotsForCategory(ranges, category) {
 }
 
 /**
+ * Generate candidate start times (HH:MM) every stepMinutes within business ranges,
+ * where [start, start+durationMinutes] fits entirely in some range. Used for treatment-based
+ * availability (smart slots: only starts that allow the full treatment duration).
+ */
+function getCandidateStartTimesForDuration(ranges, durationMinutes, stepMinutes = SLOT_GRANULARITY_MINUTES) {
+  const slots = [];
+  const seen = new Set();
+  for (const range of ranges) {
+    const [startH, startM] = parseTime(range.start) || [0, 0];
+    const [endH, endM] = parseTime(range.end) || [23, 59];
+    let m = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    while (m + durationMinutes <= endMinutes) {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      const key = `${h}:${min}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
+      }
+      m += stepMinutes;
+    }
+  }
+  return slots.sort();
+}
+
+/**
  * Get all appointments for a date from ALL users (for category overlap / maxPerHour checks).
- * categoryBufferMap: { categoryId: bufferMinutes } - used for block-end calculation
+ * categoryBufferMap: { categoryId: bufferMinutes } - used when reminder has no bufferMinutes
  */
 function getAllAppointmentsForDate(reminders, dateStr, categoryBufferMap = {}) {
   const result = [];
@@ -192,7 +223,7 @@ function getAllAppointmentsForDate(reminders, dateStr, categoryBufferMap = {}) {
       if (r.date !== dateStr) continue;
       const [h, m] = parseTime(r.time) || [0, 0];
       const duration = typeof r.duration === 'number' && r.duration > 0 ? r.duration : 30;
-      const buffer = (r.categoryId && categoryBufferMap[r.categoryId]) ?? 0;
+      const buffer = r.bufferMinutes != null ? r.bufferMinutes : ((r.categoryId && categoryBufferMap[r.categoryId]) ?? 0);
       result.push({
         phone,
         startMin: h * 60 + m,
@@ -274,7 +305,44 @@ async function handleQueryCategories(context) {
   if (categories.length === 0) return comment('noServicesAvailable');
   const phone = context.userId ? toPhoneKey(context.userId) : 'global';
   lastCategoriesByUser.set(phone, { list: categories.map((c) => ({ id: c.id, name: c.name })) });
-  return categories.map((c, i) => `${i + 1}. ${c.name}`).join(', ');
+  return categories.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+}
+
+/**
+ * [QUERY_TREATMENTS: category_number=N] or category_id=...
+ * Returns user-friendly numbered list of treatment types for that category. Stores list for treatment_number in QUERY_AVAILABILITY / BOOK_APPOINTMENT.
+ */
+async function handleQueryTreatments(params, context) {
+  let categoryId = (params.category_id || '').trim();
+  const categoryNumber = params.category_number != null ? parseInt(String(params.category_number), 10) : NaN;
+
+  if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return comment('noServiceSelected');
+  if (!categoryId) {
+    const phone = context.userId ? toPhoneKey(context.userId) : 'global';
+    const stored = lastCategoriesByUser.get(phone);
+    if (stored?.list?.[categoryNumber - 1]) {
+      categoryId = stored.list[categoryNumber - 1].id;
+    } else {
+      const allCategories = await loadCategories();
+      if (Array.isArray(allCategories) && allCategories[categoryNumber - 1]) {
+        categoryId = allCategories[categoryNumber - 1].id;
+      } else {
+        return comment('serviceNotFoundRestart');
+      }
+    }
+  }
+
+  const category = await getCategoryById(categoryId);
+  if (!category) return comment('serviceNotFound');
+  const treatments = category.treatments || [];
+  if (treatments.length === 0) return comment('noTreatmentsAvailable');
+
+  const phone = context.userId ? toPhoneKey(context.userId) : 'global';
+  lastTreatmentsByUser.set(phone, {
+    categoryId,
+    list: treatments.map((t) => ({ id: t.id, name: t.name, durationMinutes: t.durationMinutes, bufferMinutes: t.bufferMinutes })),
+  });
+  return treatments.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
 }
 
 /**
@@ -298,6 +366,7 @@ async function handleQueryAvailability(params, context) {
   const dateStr = (params.date || '').trim();
   let categoryId = (params.category_id || '').trim();
   const categoryNumber = params.category_number != null ? parseInt(String(params.category_number), 10) : NaN;
+  const treatmentNumber = params.treatment_number != null ? parseInt(String(params.treatment_number), 10) : NaN;
   const preferredTimeRaw = (params.preferred_time || '').trim();
   const preferredTime = preferredTimeRaw ? normalizeTimeToHHMM(preferredTimeRaw) : '';
 
@@ -309,7 +378,6 @@ async function handleQueryAvailability(params, context) {
     if (stored?.list?.[categoryNumber - 1]) {
       categoryId = stored.list[categoryNumber - 1].id;
     } else {
-      // Fallback: resolve by 1-based index from current categories (same order as QUERY_CATEGORIES)
       const allCategories = await loadCategories();
       if (Array.isArray(allCategories) && allCategories[categoryNumber - 1]) {
         categoryId = allCategories[categoryNumber - 1].id;
@@ -325,12 +393,26 @@ async function handleQueryAvailability(params, context) {
   const category = await getCategoryById(categoryId);
   if (!category) return comment('serviceNotFound');
 
+  let duration = category.durationMinutes;
+  let useTreatmentSlots = false;
+  if (!isNaN(treatmentNumber) && treatmentNumber >= 1) {
+    const phone = context.userId ? toPhoneKey(context.userId) : 'global';
+    const treatmentStored = lastTreatmentsByUser.get(phone);
+    if (treatmentStored && treatmentStored.categoryId === categoryId && treatmentStored.list?.[treatmentNumber - 1]) {
+      const treatment = treatmentStored.list[treatmentNumber - 1];
+      duration = treatment.durationMinutes;
+      useTreatmentSlots = true;
+    }
+  }
+
   const phone = context.userId ? toPhoneKey(context.userId) : '';
   const businessHours = await loadBusinessHours();
   const dayIndex = date.getDay();
   const ranges = getHoursForDay(businessHours, dayIndex);
 
-  const allSlots = generateSlotsForCategory(ranges, category);
+  const allSlots = useTreatmentSlots
+    ? getCandidateStartTimesForDuration(ranges, duration)
+    : generateSlotsForCategory(ranges, category);
 
   const reminders = await loadReminders();
   const categories = await loadCategories();
@@ -339,7 +421,6 @@ async function handleQueryAvailability(params, context) {
   const userReminders = phone ? await getRemindersForUser(phone) : [];
   const userAppointments = getUserAppointmentsForDate(userReminders, dateStr);
 
-  const duration = category.durationMinutes;
   const now = getCurrentDate();
   const todayStr = formatDateString(now);
   const isToday = dateStr === todayStr;
@@ -384,14 +465,15 @@ async function handleQueryAvailability(params, context) {
 }
 
 /**
- * [BOOK_APPOINTMENT: date=..., time=..., category_id=... או category_number=1]
- * Books a new appointment. Returns short Hebrew success/error message for the client.
+ * [BOOK_APPOINTMENT: date=..., time=..., category_id=... או category_number=1, treatment_number=M?]
+ * Books a new appointment. If treatment_number is set, uses treatment duration and buffer and stores treatmentId.
  */
 async function handleBookAppointment(params, context) {
   const dateStr = (params.date || '').trim();
   const timeStr = (params.time || '').trim();
   let categoryId = (params.category_id || '').trim();
   const categoryNumber = params.category_number != null ? parseInt(String(params.category_number), 10) : NaN;
+  const treatmentNumber = params.treatment_number != null ? parseInt(String(params.treatment_number), 10) : NaN;
 
   if (!dateStr || !timeStr) return comment('missingDateOrTime');
   if (!categoryId && (isNaN(categoryNumber) || categoryNumber < 1)) return comment('noServiceSelected');
@@ -421,7 +503,23 @@ async function handleBookAppointment(params, context) {
   const phone = context.userId ? toPhoneKey(context.userId) : '';
   if (!phone) return comment('cannotIdentifyUser');
 
-  const duration = category.durationMinutes;
+  let duration = category.durationMinutes;
+  let bufferMinutes = category.bufferMinutes;
+  let treatmentId = null;
+  let treatmentName = null;
+  let useTreatmentSlots = false;
+  if (!isNaN(treatmentNumber) && treatmentNumber >= 1) {
+    const treatmentStored = lastTreatmentsByUser.get(phone);
+    if (treatmentStored && treatmentStored.categoryId === categoryId && treatmentStored.list?.[treatmentNumber - 1]) {
+      const treatment = treatmentStored.list[treatmentNumber - 1];
+      duration = treatment.durationMinutes;
+      bufferMinutes = treatment.bufferMinutes;
+      treatmentId = treatment.id;
+      treatmentName = treatment.name;
+      useTreatmentSlots = true;
+    }
+  }
+
   const slotMin = h * 60 + m;
 
   const reminders = await loadReminders();
@@ -457,7 +555,9 @@ async function handleBookAppointment(params, context) {
   }
   if (!withinHours) return comment('outsideBusinessHours');
 
-  const validSlots = generateSlotsForCategory(ranges, category);
+  const validSlots = useTreatmentSlots
+    ? getCandidateStartTimesForDuration(ranges, duration)
+    : generateSlotsForCategory(ranges, category);
   if (!validSlots.includes(timeStr)) {
     return comment('timeNotInList');
   }
@@ -474,13 +574,13 @@ async function handleBookAppointment(params, context) {
     return comment('alreadyHaveAppointmentThisHour');
   }
 
-  // Reminder validation requires duration >= 15 and divisible by 15
-  const validDuration = Math.max(15, Math.round((duration || 30) / 15) * 15);
+  const validDuration = Math.max(1, Math.round(duration || 30));
 
   const clientDisplayName = await getClientDisplayName(phone);
+  const serviceLabel = treatmentName ? `${category.name} - ${treatmentName}` : (category.name || 'פגישה');
   const titleForCalendar = clientDisplayName
-    ? `פגישה - ${clientDisplayName}${category.name ? ' - ' + category.name : ''}`
-    : (category.name ? `פגישה - ${category.name}` : 'פגישה');
+    ? `פגישה - ${clientDisplayName} - ${serviceLabel}`
+    : `פגישה - ${serviceLabel}`;
 
   const id = `apt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const newReminder = {
@@ -494,6 +594,8 @@ async function handleBookAppointment(params, context) {
     categoryId: category.id,
     preReminder: DEFAULT_PRE_REMINDERS,
   };
+  if (treatmentId) newReminder.treatmentId = treatmentId;
+  if (bufferMinutes != null) newReminder.bufferMinutes = bufferMinutes;
 
   const remindersBefore = [...freshReminders];
   freshReminders.push(newReminder);
@@ -504,9 +606,10 @@ async function handleBookAppointment(params, context) {
     logError(`[AI Middleware] Google Calendar sync after BOOK_APPOINTMENT: ${err?.message || err}`);
   });
 
-  logInfo(`[AI Middleware] BOOK_APPOINTMENT: created ${id} for ${phone} at ${dateStr} ${timeStr} (${category.name})`);
+  logInfo(`[AI Middleware] BOOK_APPOINTMENT: created ${id} for ${phone} at ${dateStr} ${timeStr} (${serviceLabel})`);
   const dateDisplay = formatDateShort(dateStr);
-  return comment('bookSuccess', { dateDisplay, timeStr, categoryName: category.name || '' });
+  const successMsg = comment('bookSuccess', { dateDisplay, timeStr, categoryName: serviceLabel });
+  return { replacement: successMsg, stopConversation: true };
 }
 
 /**
@@ -585,6 +688,7 @@ function handleAbortBooking(context) {
     logInfo(`[AI Middleware] ABORT_BOOKING: cleared temp state for ${key}`);
   }
   lastCategoriesByUser.delete(key);
+  lastTreatmentsByUser.delete(key);
   return comment('abortBooking');
 }
 
@@ -596,6 +700,12 @@ const COMMAND_PATTERNS = [
     regex: /\[QUERY_CATEGORIES(?:\s*:\s*([^\]]*))?\]/gi,
     handler: handleQueryCategories,
     parseParams: () => ({}),
+  },
+  {
+    name: 'QUERY_TREATMENTS',
+    regex: /\[QUERY_TREATMENTS(?:\s*:\s*([^\]]*))?\]/gi,
+    handler: handleQueryTreatments,
+    parseParams: (body) => parseCommandParams(body || ''),
   },
   {
     name: 'QUERY_AVAILABILITY',
@@ -631,11 +741,15 @@ const COMMAND_PATTERNS = [
 
 /**
  * Process AI response text: find all commands, run handlers, replace with results.
+ * @returns {Promise<{text: string, stopConversation?: boolean}>} stopConversation true when BOOK_APPOINTMENT succeeded (caller should end conversation).
  */
 export async function processAiResponse(text, context = {}) {
-  if (!text || typeof text !== 'string') return text;
+  if (!text || typeof text !== 'string') {
+    return { text: text || '', stopConversation: false };
+  }
 
   let result = text;
+  let stopConversation = false;
   for (const { name, regex, handler, parseParams } of COMMAND_PATTERNS) {
     regex.lastIndex = 0;
     const matches = [...text.matchAll(regex)];
@@ -644,13 +758,20 @@ export async function processAiResponse(text, context = {}) {
       const body = (match[1] || '').trim();
       try {
         const params = parseParams(body);
-        const replacement = await Promise.resolve(handler(params, context));
-        result = result.replace(fullMatch, String(replacement));
+        const raw = await Promise.resolve(handler(params, context));
+        const replacement =
+          typeof raw === 'object' && raw != null && 'replacement' in raw
+            ? String(raw.replacement)
+            : String(raw);
+        if (typeof raw === 'object' && raw != null && raw.stopConversation) {
+          stopConversation = true;
+        }
+        result = result.replace(fullMatch, replacement);
       } catch (err) {
         logError(`[AI Middleware] Error executing ${name}:`, err);
         result = result.replace(fullMatch, comment('middlewareError'));
       }
     }
   }
-  return result;
+  return { text: result, stopConversation };
 }
