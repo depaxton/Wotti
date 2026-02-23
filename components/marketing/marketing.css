@@ -60,6 +60,22 @@
   gap: 24px;
 }
 
+/* Legal disclaimer */
+.marketing-disclaimer {
+  padding: 12px 16px;
+  background: rgba(200, 0, 0, 0.08);
+  border: 1px solid #c00;
+  border-radius: 12px;
+}
+
+.marketing-disclaimer p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #b00;
+  font-weight: 500;
+}
+
 /* Toggle section */
 .marketing-toggle-section {
   display: flex;
@@ -77,12 +93,14 @@
 
 .marketing-toggle-switch {
   position: relative;
-  width: 52px;
+  width: 56px;
   height: 28px;
   background: var(--color-medium-grey);
   border-radius: 14px;
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .marketing-toggle-switch.on {
@@ -93,19 +111,25 @@
   content: "";
   position: absolute;
   top: 2px;
-  right: 2px;
   width: 24px;
   height: 24px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.2s;
+  transition: left 0.2s, right 0.2s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  right: 2px;
+  left: auto;
 }
 
 .marketing-toggle-switch.on::after {
-  transform: translateX(-24px);
-  right: auto;
   left: 2px;
+  right: auto;
+}
+
+.marketing-confirm-text {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 /* Settings form */

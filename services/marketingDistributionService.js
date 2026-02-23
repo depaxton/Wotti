@@ -21,8 +21,11 @@ const FILES = {
 const DEFAULT_SETTINGS = {
   enabled: false,
   startHour: 9,
+  startMinute: 0,
   endHour: 18,
+  endMinute: 0,
   resumeHour: 8,
+  resumeMinute: 0,
   dailyLimit: 50,
   delayMinutes: 5,
   sentToday: 0,
@@ -270,9 +273,12 @@ export async function resetSentTodayIfNeeded() {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const resumeHour = s.resumeHour != null ? Number(s.resumeHour) : 8;
+  const resumeMinute = s.resumeMinute != null ? Number(s.resumeMinute) : 0;
   const lastReset = s.lastResetDate;
   const shouldReset = !lastReset || lastReset !== today;
-  if (shouldReset && now.getHours() >= resumeHour) {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const resumeMinutes = resumeHour * 60 + resumeMinute;
+  if (shouldReset && nowMinutes >= resumeMinutes) {
     await updateSettings({ sentToday: 0, lastResetDate: today });
     return true;
   }

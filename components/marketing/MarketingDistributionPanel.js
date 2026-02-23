@@ -93,6 +93,15 @@ export async function createMarketingDistributionPanel() {
   const content = document.createElement("div");
   content.className = "marketing-content";
 
+  // Legal disclaimer (red)
+  const disclaimerEl = document.createElement("div");
+  disclaimerEl.className = "marketing-disclaimer";
+  disclaimerEl.innerHTML = `
+    <p>הפעלת ההפצה השיווקית נעשית על באחריות ועל ידי בעלי העסק בלבד.<br>
+    יוצר התוכנה מסיר כל אחריות לרבות נזק ותביעה וכל אשר יבוא בעקבות זאת.<br>
+    על בעל העסק האחריות לבדוק את תנאי החוק ולוודא שהרשימה שאיתה הוא עובד נחשבת חוקית ועומדת בכל התנאים.</p>
+  `;
+
   // Toggle
   const toggleSection = document.createElement("div");
   toggleSection.className = "marketing-toggle-section";
@@ -110,15 +119,15 @@ export async function createMarketingDistributionPanel() {
     <div class="marketing-settings-grid">
       <div class="marketing-form-group">
         <label>שעת התחלה</label>
-        <input type="time" id="mdStartHour" step="3600" value="09:00" />
+        <input type="time" id="mdStartHour" step="60" value="09:00" />
       </div>
       <div class="marketing-form-group">
         <label>שעת סיום</label>
-        <input type="time" id="mdEndHour" step="3600" value="18:00" />
+        <input type="time" id="mdEndHour" step="60" value="18:00" />
       </div>
       <div class="marketing-form-group">
         <label>שעת איפוס יומי</label>
-        <input type="time" id="mdResumeHour" step="3600" value="08:00" />
+        <input type="time" id="mdResumeHour" step="60" value="08:00" />
       </div>
       <div class="marketing-form-group">
         <label>מגבלה יומית</label>
@@ -185,6 +194,7 @@ export async function createMarketingDistributionPanel() {
   const phoneInput = listsSection.querySelector("#mdPhoneInput");
   const addPhoneBtn = listsSection.querySelector("#mdAddPhoneBtn");
 
+  content.appendChild(disclaimerEl);
   content.appendChild(toggleSection);
   content.appendChild(settingsSection);
   content.appendChild(messagesSection);
@@ -224,17 +234,23 @@ export async function createMarketingDistributionPanel() {
     return data;
   }
 
-  function hourToTimeValue(hour) {
+  function hourMinuteToTimeValue(hour, minute) {
     const h = Number(hour);
+    const m = Number(minute);
     if (Number.isNaN(h) || h < 0 || h > 23) return "09:00";
-    return `${String(h).padStart(2, "0")}:00`;
+    const min = Number.isNaN(m) || m < 0 || m > 59 ? 0 : Math.floor(m);
+    return `${String(Math.floor(h)).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
   }
 
-  function timeValueToHour(value) {
-    if (!value || typeof value !== "string") return 9;
-    const part = value.trim().split(":")[0];
-    const h = parseInt(part, 10);
-    return Number.isNaN(h) ? 9 : Math.max(0, Math.min(23, h));
+  function timeValueToHourMinute(value) {
+    if (!value || typeof value !== "string") return { hour: 9, minute: 0 };
+    const parts = value.trim().split(":");
+    const h = parseInt(parts[0], 10);
+    const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+    return {
+      hour: Number.isNaN(h) ? 9 : Math.max(0, Math.min(23, h)),
+      minute: Number.isNaN(m) ? 0 : Math.max(0, Math.min(59, m)),
+    };
   }
 
   function renderSettings() {
@@ -244,9 +260,9 @@ export async function createMarketingDistributionPanel() {
       const el = get(id);
       if (el) el.value = val;
     };
-    set("mdStartHour", hourToTimeValue(s.startHour ?? 9));
-    set("mdEndHour", hourToTimeValue(s.endHour ?? 18));
-    set("mdResumeHour", hourToTimeValue(s.resumeHour ?? 8));
+    set("mdStartHour", hourMinuteToTimeValue(s.startHour ?? 9, s.startMinute ?? 0));
+    set("mdEndHour", hourMinuteToTimeValue(s.endHour ?? 18, s.endMinute ?? 0));
+    set("mdResumeHour", hourMinuteToTimeValue(s.resumeHour ?? 8, s.resumeMinute ?? 0));
     set("mdDailyLimit", s.dailyLimit ?? 50);
     set("mdDelayMinutes", s.delayMinutes ?? 5);
     toggleEl.classList.toggle("on", !!s.enabled);
@@ -473,9 +489,35 @@ export async function createMarketingDistributionPanel() {
     textarea.focus();
   }
 
-  // Toggle
+  // Toggle: when turning ON, show confirmation popup first
   toggleEl.addEventListener("click", async () => {
     const next = !state.settings.enabled;
+    if (next) {
+      const confirmed = await new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "marketing-modal-overlay";
+        const modal = document.createElement("div");
+        modal.className = "marketing-modal";
+        modal.innerHTML = `
+          <h4>אישור אחריות</h4>
+          <p class="marketing-confirm-text">אני בעל העסק קראתי את האזהרה ומאשר שהאחריות היא 100 אחוז עלי.</p>
+          <div class="marketing-modal-actions">
+            <button type="button" class="marketing-btn-cancel">ביטול</button>
+            <button type="button" class="marketing-btn-save marketing-confirm-ok">אישור</button>
+          </div>
+        `;
+        overlay.appendChild(modal);
+        const close = (result) => {
+          overlay.remove();
+          resolve(result);
+        };
+        modal.querySelector(".marketing-btn-cancel").addEventListener("click", () => close(false));
+        modal.querySelector(".marketing-confirm-ok").addEventListener("click", () => close(true));
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
+        document.body.appendChild(overlay);
+      });
+      if (!confirmed) return;
+    }
     try {
       state.settings = await apiPost("/settings", { enabled: next });
       renderSettings();
@@ -486,16 +528,19 @@ export async function createMarketingDistributionPanel() {
 
   // Save settings
   settingsSection.querySelector("#mdSaveSettingsBtn").addEventListener("click", async () => {
-    const startHour = timeValueToHour(content.querySelector("#mdStartHour").value);
-    const endHour = timeValueToHour(content.querySelector("#mdEndHour").value);
-    const resumeHour = timeValueToHour(content.querySelector("#mdResumeHour").value);
+    const start = timeValueToHourMinute(content.querySelector("#mdStartHour").value);
+    const end = timeValueToHourMinute(content.querySelector("#mdEndHour").value);
+    const resume = timeValueToHourMinute(content.querySelector("#mdResumeHour").value);
     const dailyLimit = parseInt(content.querySelector("#mdDailyLimit").value, 10);
     const delayMinutes = parseInt(content.querySelector("#mdDelayMinutes").value, 10);
     try {
       state.settings = await apiPost("/settings", {
-        startHour,
-        endHour,
-        resumeHour,
+        startHour: start.hour,
+        startMinute: start.minute,
+        endHour: end.hour,
+        endMinute: end.minute,
+        resumeHour: resume.hour,
+        resumeMinute: resume.minute,
         dailyLimit: Number.isNaN(dailyLimit) ? 50 : dailyLimit,
         delayMinutes: Number.isNaN(delayMinutes) ? 5 : delayMinutes,
       });

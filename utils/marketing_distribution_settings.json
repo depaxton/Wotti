@@ -1,11 +1,14 @@
 {
   "enabled": false,
-  "startHour": 9,
+  "startHour": 5,
+  "startMinute": 34,
   "endHour": 18,
+  "endMinute": 0,
   "resumeHour": 8,
+  "resumeMinute": 0,
   "dailyLimit": 50,
-  "delayMinutes": 5,
-  "sentToday": 0,
+  "delayMinutes": 1,
+  "sentToday": 1,
   "lastResetDate": "2026-02-22",
-  "lastSentAt": "2026-02-18T09:49:37.421Z"
+  "lastSentAt": "2026-02-23T03:28:49.327Z"
 }

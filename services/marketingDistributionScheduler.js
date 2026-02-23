@@ -19,12 +19,12 @@ import { logError, logInfo, logWarn } from "../utils/logger.js";
 const CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
 let intervalId = null;
 
-function isWithinTimeWindow(now, startHour, endHour) {
-  const h = now.getHours();
-  const start = Number(startHour);
-  const end = Number(endHour);
-  if (start <= end) return h >= start && h < end;
-  return h >= start || h < end;
+function isWithinTimeWindow(now, startHour, startMinute, endHour, endMinute) {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const start = Number(startHour) * 60 + (Number(startMinute) || 0);
+  const end = Number(endHour) * 60 + (Number(endMinute) || 0);
+  if (start <= end) return nowMinutes >= start && nowMinutes < end;
+  return nowMinutes >= start || nowMinutes < end;
 }
 
 function isDelayElapsed(now, lastSentAt, delayMinutes) {
@@ -44,7 +44,7 @@ async function tick() {
     if (!settings.enabled) return;
 
     const now = new Date();
-    if (!isWithinTimeWindow(now, settings.startHour, settings.endHour)) return;
+    if (!isWithinTimeWindow(now, settings.startHour, settings.startMinute, settings.endHour, settings.endMinute)) return;
     if ((settings.sentToday || 0) >= (settings.dailyLimit || 0)) return;
     if (!isDelayElapsed(now, settings.lastSentAt, settings.delayMinutes)) return;
 
