@@ -132,7 +132,7 @@ export async function tryActivateByWords(userId, messageText) {
     const canonical = isUserActive(userId) ? userId : normalized;
     return { activated: false, canonicalUserId: canonical };
   }
-  if (isUserFinished(userId) || isUserFinished(normalized)) return { activated: false };
+  // משתמש מ"שיחות לא פעילות" (finished) ששולח מילת הפעלה – מאפשרים הפעלה ומעבירים לשיחות פעילות
 
   try {
     const client = getClient();
@@ -153,6 +153,10 @@ export async function tryActivateByWords(userId, messageText) {
 
     const result = await startConversationAnonymous(idToUse, userName, userNumber);
     if (result.success) {
+      if (isUserFinished(idToUse) || isUserFinished(normalized)) {
+        deleteFinishedUser(idToUse);
+        logInfo(`✅ [Auto words] Removed ${idToUse} from finished list (now in active)`);
+      }
       logInfo(`✅ [Auto words] Activated conversation with ${idToUse} (message contained trigger word)`);
       return { activated: true, canonicalUserId: idToUse };
     }
