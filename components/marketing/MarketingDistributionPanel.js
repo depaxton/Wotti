@@ -186,6 +186,12 @@ export async function createMarketingDistributionPanel() {
       <input type="text" id="mdSearchNeverSend" class="marketing-list-search" placeholder="חיפוש לפי שם או מספר..." aria-label="חיפוש ברשימה לעולם לא לשלוח" />
       <div class="marketing-list-body" id="mdNeverSendList"></div>
     </div>
+    <div class="marketing-list-card marketing-no-whatsapp-send-card">
+      <h3>אין אפשרות שליחה עקב וואטסאפ <span class="marketing-list-count" id="mdNoWhatsAppSendCount">0</span></h3>
+      <p class="marketing-no-whatsapp-send-desc">מספרים שלא ניתן לשלוח אליהם (למשל No LID for user). הוסרו אוטומטית מרשימה לשליחה.</p>
+      <input type="text" id="mdSearchNoWhatsAppSend" class="marketing-list-search" placeholder="חיפוש לפי שם או מספר..." aria-label="חיפוש ברשימה אין אפשרות שליחה עקב וואטסאפ" />
+      <div class="marketing-list-body" id="mdNoWhatsAppSendList"></div>
+    </div>
   `;
   const toSendListEl = listsSection.querySelector("#mdToSendList");
   const sentListEl = listsSection.querySelector("#mdSentList");
@@ -204,6 +210,8 @@ export async function createMarketingDistributionPanel() {
 
   const neverSendListEl = listsSection.querySelector("#mdNeverSendList");
   const neverSendCountEl = listsSection.querySelector("#mdNeverSendCount");
+  const noWhatsAppSendListEl = listsSection.querySelector("#mdNoWhatsAppSendList");
+  const noWhatsAppSendCountEl = listsSection.querySelector("#mdNoWhatsAppSendCount");
   const excelInput = listsSection.querySelector("#mdExcelInput");
 
   let refreshIntervalId = null;
@@ -212,6 +220,7 @@ export async function createMarketingDistributionPanel() {
     toSend: [],
     sent: [],
     neverSend: [],
+    noWhatsAppSend: [],
     settings: {},
   };
 
@@ -227,10 +236,15 @@ export async function createMarketingDistributionPanel() {
     state.neverSend = (neverRes.items || neverRes.phones || []).map((e) =>
       typeof e === "object" && e && e.phone != null ? { phone: e.phone, name: e.name != null ? String(e.name) : "" } : { phone: String(e), name: "" }
     );
+    const noWhatsAppRes = await apiGet("/no-whatsapp-send");
+    state.noWhatsAppSend = (noWhatsAppRes.items || noWhatsAppRes.phones || []).map((e) =>
+      typeof e === "object" && e && e.phone != null ? { phone: e.phone, name: e.name != null ? String(e.name) : "" } : { phone: String(e), name: "" }
+    );
     state.messages = (await apiGet("/messages")).messages || [];
     toSendCountEl.textContent = data.eligibleToSendCount ?? state.toSend.length;
     sentCountEl.textContent = data.sentCount ?? state.sent.length;
     neverSendCountEl.textContent = state.neverSend.length;
+    noWhatsAppSendCountEl.textContent = state.noWhatsAppSend.length;
     messagesCountEl.textContent = state.messages.length;
     return data;
   }
@@ -402,6 +416,27 @@ export async function createMarketingDistributionPanel() {
     neverSendCountEl.textContent = (state.neverSend || []).length;
   }
 
+  function renderNoWhatsAppSendList() {
+    const searchEl = content.querySelector("#mdSearchNoWhatsAppSend");
+    const searchQ = searchEl ? searchEl.value.trim() : "";
+    let list = state.noWhatsAppSend || [];
+    if (searchQ) list = list.filter((e) => matchesSearch(e, searchQ));
+    noWhatsAppSendListEl.innerHTML = "";
+    const headerRow = document.createElement("div");
+    headerRow.className = "marketing-list-item marketing-list-header";
+    headerRow.innerHTML = `<span class="marketing-col-name">שם</span><span class="marketing-col-phone">מספר</span>`;
+    noWhatsAppSendListEl.appendChild(headerRow);
+    list.forEach((entry) => {
+      const phone = typeof entry === "object" && entry && entry.phone != null ? entry.phone : entry;
+      const name = typeof entry === "object" && entry && entry.name != null ? String(entry.name) : "";
+      const div = document.createElement("div");
+      div.className = "marketing-list-item marketing-list-item-cols";
+      div.innerHTML = `<span class="marketing-col-name">${escapeHtml(name)}</span><span class="marketing-col-phone">${escapeHtml(phone)}</span>`;
+      noWhatsAppSendListEl.appendChild(div);
+    });
+    noWhatsAppSendCountEl.textContent = (state.noWhatsAppSend || []).length;
+  }
+
   async function refresh() {
     try {
       await loadStatus();
@@ -410,6 +445,7 @@ export async function createMarketingDistributionPanel() {
       renderToSendList();
       renderSentList();
       renderNeverSendList();
+      renderNoWhatsAppSendList();
     } catch (e) {
       console.error("Marketing distribution refresh", e);
     }
@@ -619,6 +655,7 @@ export async function createMarketingDistributionPanel() {
   content.querySelector("#mdSearchToSend")?.addEventListener("input", () => renderToSendList());
   content.querySelector("#mdSearchSent")?.addEventListener("input", () => renderSentList());
   content.querySelector("#mdSearchNeverSend")?.addEventListener("input", () => renderNeverSendList());
+  content.querySelector("#mdSearchNoWhatsAppSend")?.addEventListener("input", () => renderNoWhatsAppSendList());
 
   function closePanel() {
     if (refreshIntervalId) {

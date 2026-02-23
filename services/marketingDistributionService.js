@@ -15,6 +15,7 @@ const FILES = {
   toSend: path.join(UTILS_DIR, "marketing_distribution_to_send.json"),
   sent: path.join(UTILS_DIR, "marketing_distribution_sent.json"),
   neverSend: path.join(UTILS_DIR, "marketing_distribution_never_send.json"),
+  noWhatsAppSend: path.join(UTILS_DIR, "marketing_distribution_no_whatsapp_send.json"),
   settings: path.join(UTILS_DIR, "marketing_distribution_settings.json"),
 };
 
@@ -196,6 +197,30 @@ export async function addToNeverSend(phone, name = "") {
 export function isInNeverSend(neverList, phone) {
   const normalized = normalizePhoneForStorage(phone);
   return neverList && neverSendPhonesSet(neverList).has(normalized);
+}
+
+// --- No WhatsApp send list (אין אפשרות שליחה עקב וואטסאפ) ---
+
+export async function getNoWhatsAppSendList() {
+  const list = await readJson(FILES.noWhatsAppSend, []);
+  if (!Array.isArray(list)) return [];
+  return list.map((item) => {
+    if (typeof item === "object" && item && item.phone != null) {
+      return { phone: item.phone, name: item.name != null ? String(item.name) : "" };
+    }
+    return { phone: String(item), name: "" };
+  });
+}
+
+export async function addToNoWhatsAppSend(phone, name = "") {
+  const list = await getNoWhatsAppSendList();
+  const normalized = normalizePhoneForStorage(phone);
+  if (!normalized) return list;
+  if (list.some((e) => (e && e.phone) === normalized)) return list;
+  list.push({ phone: normalized, name: name != null ? String(name).trim() : "" });
+  await writeJson(FILES.noWhatsAppSend, list);
+  logInfo(`Marketing: added to no-WhatsApp-send list (אין אפשרות שליחה עקב וואטסאפ): ${normalized} (${name || "—"})`);
+  return list;
 }
 
 // --- Sent list ---

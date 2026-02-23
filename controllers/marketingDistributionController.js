@@ -12,6 +12,7 @@ import {
   addManyToSend,
   removeFromToSend,
   getNeverSendList,
+  getNoWhatsAppSendList,
   getSentList,
   getSettings,
   updateSettings,
@@ -20,6 +21,7 @@ import {
   incrementSentToday,
   addToSent,
   removeFromSent,
+  addToNoWhatsAppSend,
   phoneToChatId,
   normalizePhoneForStorage,
 } from "../services/marketingDistributionService.js";
@@ -214,15 +216,30 @@ export async function getNeverSendController(req, res) {
 }
 
 /**
+ * GET /api/marketing-distribution/no-whatsapp-send
+ * Returns { items: [{ phone, name? }], phones: string[] } — "אין אפשרות שליחה עקב וואטסאפ"
+ */
+export async function getNoWhatsAppSendController(req, res) {
+  try {
+    const list = await getNoWhatsAppSendList();
+    res.json({ items: list, phones: list.map((e) => e.phone) });
+  } catch (e) {
+    logError("marketingDistribution getNoWhatsAppSend", e);
+    res.status(500).json({ error: e.message });
+  }
+}
+
+/**
  * GET /api/marketing-distribution/status
  * For UI: counts, settings summary, eligible count
  */
 export async function getStatusController(req, res) {
   try {
-    const [toSend, sent, neverSend, settings, eligible] = await Promise.all([
+    const [toSend, sent, neverSend, noWhatsAppSend, settings, eligible] = await Promise.all([
       getToSendList(),
       getSentList(),
       getNeverSendList(),
+      getNoWhatsAppSendList(),
       getSettings(),
       getEligibleToSend(),
     ]);
@@ -230,6 +247,7 @@ export async function getStatusController(req, res) {
       toSendCount: toSend.length,
       sentCount: sent.length,
       neverSendCount: neverSend.length,
+      noWhatsAppSendCount: noWhatsAppSend.length,
       eligibleToSendCount: eligible.length,
       settings,
     });
@@ -244,6 +262,7 @@ export async function getStatusController(req, res) {
  * Sends one message to the next eligible number (for manual test). Respects enabled and limits.
  */
 export async function sendOneController(req, res) {
+  let phone, name;
   try {
     const settings = await getSettings();
     if (!settings.enabled) {
@@ -266,8 +285,8 @@ export async function sendOneController(req, res) {
       return res.status(503).json({ error: "WhatsApp client not ready" });
     }
     const entry = eligible[0];
-    const phone = entry.phone;
-    const name = entry.name || "";
+    phone = entry.phone;
+    name = entry.name || "";
     const chatId = phoneToChatId(phone);
     if (!chatId) {
       return res.status(400).json({ error: "Invalid phone" });
@@ -280,6 +299,19 @@ export async function sendOneController(req, res) {
     logInfo(`Marketing distribution: sent to ${phone}`);
     res.json({ success: true, phone, name, messageId: msg.id });
   } catch (e) {
+    const errMsg = (e && (e.message || e.toString())) || "";
+    if (errMsg.includes("No LID for user") && phone) {
+      await addToNoWhatsAppSend(phone, name || "");
+      await removeFromToSend(phone);
+      logInfo(`Marketing distribution send-one: No LID for user ${phone}, moved to "אין אפשרות שליחה עקב וואטסאפ"`);
+      return res.json({
+        success: false,
+        noLid: true,
+        phone,
+        name,
+        message: "No LID for user – הועבר לרשימה 'אין אפשרות שליחה עקב וואטסאפ' והוסר מרשימה לשליחה",
+      });
+    }
     logError("marketingDistribution sendOne", e);
     res.status(500).json({ error: e.message });
   }

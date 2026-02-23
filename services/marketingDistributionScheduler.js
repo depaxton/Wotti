@@ -13,6 +13,7 @@ import {
   setLastSentAt,
   resetSentTodayIfNeeded,
   phoneToChatId,
+  addToNoWhatsAppSend,
 } from "./marketingDistributionService.js";
 import { logError, logInfo, logWarn } from "../utils/logger.js";
 
@@ -38,6 +39,7 @@ function isDelayElapsed(now, lastSentAt, delayMinutes) {
  * Single tick: reset daily if needed, then maybe send one message
  */
 async function tick() {
+  let phone, name;
   try {
     await resetSentTodayIfNeeded();
     const settings = await getSettings();
@@ -60,8 +62,8 @@ async function tick() {
     if (!ready) return;
 
     const entry = eligible[0];
-    const phone = entry.phone;
-    const name = entry.name || "";
+    phone = entry.phone;
+    name = entry.name || "";
     const chatId = phoneToChatId(phone);
     if (!chatId) return;
 
@@ -73,6 +75,13 @@ async function tick() {
     await setLastSentAt(now.toISOString());
     logInfo(`Marketing distribution: sent to ${phone} (message #${msg.id})`);
   } catch (e) {
+    const errMsg = (e && (e.message || e.toString())) || "";
+    if (errMsg.includes("No LID for user") && phone) {
+      await addToNoWhatsAppSend(phone, name || "");
+      await removeFromToSend(phone);
+      logWarn(`Marketing distribution: No LID for user ${phone}, moved to "אין אפשרות שליחה עקב וואטסאפ", continuing to next`);
+      return;
+    }
     logError("marketingDistributionScheduler tick", e);
   }
 }
