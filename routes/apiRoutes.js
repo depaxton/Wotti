@@ -101,8 +101,6 @@ router.post("/gemini/mode/manual", geminiController.setManualMode);
 router.post("/gemini/mode/auto", geminiController.setAutoMode);
 router.post("/gemini/mode/refresh", geminiController.refreshAutoMode);
 router.post("/gemini/settings/auto-mode-config", geminiController.updateAutoModeConfig);
-router.get("/gemini/finished-users", geminiController.getFinishedUsers);
-router.delete("/gemini/finished-users/:userId", geminiController.deleteFinishedUser);
 router.get("/gemini/auto-messages", geminiController.getAutoMessages);
 router.post("/gemini/auto-messages", geminiController.saveAutoMessage);
 router.put("/gemini/auto-messages/:id", geminiController.updateAutoMessage);

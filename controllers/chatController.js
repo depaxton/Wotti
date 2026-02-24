@@ -181,7 +181,7 @@ export const sendMessage = async (req, res) => {
       geminiConversationService.shouldExitByOperatorWords?.(textSent) &&
       geminiConversationService.isUserActive?.(chatId)
     ) {
-      geminiConversationService.stopConversation(chatId, false);
+      geminiConversationService.stopConversation(chatId);
       logInfo(`🚪 [Chat] Operator sent exit word – AI removed from active conversation ${chatId}`);
     }
 

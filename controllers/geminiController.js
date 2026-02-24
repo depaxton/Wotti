@@ -295,11 +295,11 @@ export async function stopConversation(req, res) {
       });
     }
 
-    const stopped = geminiConversationService.stopConversation(userId, true);
+    const stopped = geminiConversationService.stopConversation(userId);
 
     return res.json({
       success: stopped,
-      message: stopped ? 'Conversation stopped and user marked as finished' : 'Conversation not found',
+      message: stopped ? 'Conversation stopped' : 'Conversation not found',
     });
   } catch (error) {
     logError('❌ Error in stopConversation controller:', error);
@@ -487,47 +487,6 @@ export async function updateAutoModeConfig(req, res) {
     });
   } catch (error) {
     logError('❌ Error in updateAutoModeConfig controller:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-    });
-  }
-}
-
-/**
- * Get finished users
- * GET /api/gemini/finished-users
- */
-export async function getFinishedUsers(req, res) {
-  try {
-    const finishedUsers = geminiConversationService.getFinishedUsers();
-    return res.json({
-      success: true,
-      finishedUsers,
-    });
-  } catch (error) {
-    logError('❌ Error in getFinishedUsers controller:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-    });
-  }
-}
-
-/**
- * Delete finished user
- * DELETE /api/gemini/finished-users/:userId
- */
-export async function deleteFinishedUser(req, res) {
-  try {
-    const { userId } = req.params;
-    const deleted = geminiConversationService.deleteFinishedUser(userId);
-    return res.json({
-      success: deleted,
-      message: deleted ? 'User removed from finished list' : 'User not found',
-    });
-  } catch (error) {
-    logError('❌ Error in deleteFinishedUser controller:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

@@ -42,8 +42,7 @@ export async function createAISettingsPanel() {
     instructions: '',
     mode: 'manual',
     settings: null,
-    activeUsers: [],
-    finishedUsers: {}
+    activeUsers: []
   };
 
   // Header
@@ -109,10 +108,6 @@ export async function createAISettingsPanel() {
   content.appendChild(activeSection);
   if (startConvSection._setActiveSectionRef) startConvSection._setActiveSectionRef(activeSection);
 
-  // Finished Users Section
-  const finishedSection = createFinishedUsersSection(state);
-  content.appendChild(finishedSection);
-
   // Assemble panel
   panel.appendChild(header);
   panel.appendChild(content);
@@ -143,24 +138,16 @@ export async function createAISettingsPanel() {
   document.addEventListener("keydown", handleEscape);
 
   // Load initial data
-  loadData(state, apiKeySection, statusSection, instructionsSection, modeSection, startConvSection, activeSection, finishedSection);
+  loadData(state, apiKeySection, statusSection, instructionsSection, modeSection, startConvSection, activeSection);
 
   let refreshListsIntervalId = setInterval(async () => {
     try {
-      const [activeRes, finishedRes] = await Promise.all([
-        fetch(`${API_URL}/api/gemini/active-conversations`),
-        fetch(`${API_URL}/api/gemini/finished-users`),
-      ]);
+      const activeRes = await fetch(`${API_URL}/api/gemini/active-conversations`);
       if (activeRes.ok) {
         const activeData = await activeRes.json();
         state.activeUsers = activeData.activeUsers || [];
         updateActiveUsersDisplay(activeSection, state.activeUsers, { state, startConvSection });
         if (startConvSection && startConvSection._renderFiltered) startConvSection._renderFiltered();
-      }
-      if (finishedRes.ok) {
-        const finishedData = await finishedRes.json();
-        state.finishedUsers = finishedData.finishedUsers || {};
-        updateFinishedUsersDisplay(finishedSection, state.finishedUsers);
       }
     } catch (_) {}
   }, 4000);
@@ -884,29 +871,9 @@ function createActiveConversationsSection(state) {
 }
 
 /**
- * Create finished users section
- */
-function createFinishedUsersSection(state) {
-  const section = document.createElement("div");
-  section.className = "ai-settings-section";
-  section.innerHTML = `
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-      שיחות לא פעילות
-    </div>
-    <div id="finishedUsersContainer" class="users-container">
-      <div class="loading-text">טוען...</div>
-    </div>
-  `;
-  return section;
-}
-
-/**
  * Load all data
  */
-async function loadData(state, apiKeySection, statusSection, instructionsSection, modeSection, startConvSection, activeSection, finishedSection) {
+async function loadData(state, apiKeySection, statusSection, instructionsSection, modeSection, startConvSection, activeSection) {
   try {
     // Load API key (exposed for display)
     try {
@@ -958,14 +925,6 @@ async function loadData(state, apiKeySection, statusSection, instructionsSection
     // Load contacts for start-conversation
     if (startConvSection) {
       await loadContactsForStartConversation(startConvSection, state);
-    }
-
-    // Load finished users
-    const finishedRes = await fetch(`${API_URL}/api/gemini/finished-users`);
-    if (finishedRes.ok) {
-      const finishedData = await finishedRes.json();
-      state.finishedUsers = finishedData.finishedUsers || {};
-      updateFinishedUsersDisplay(finishedSection, state.finishedUsers);
     }
   } catch (error) {
     console.error('Error loading AI data:', error);
@@ -1082,56 +1041,6 @@ function updateActiveUsersDisplay(section, activeUsers, options = {}) {
       } catch (error) {
         toast.error('שגיאה: ' + error.message);
         btn.disabled = false;
-      }
-    });
-  });
-}
-
-/**
- * Update finished users display
- */
-function updateFinishedUsersDisplay(section, finishedUsers) {
-  const container = section.querySelector("#finishedUsersContainer");
-  if (!container) return;
-
-  const users = Object.values(finishedUsers);
-  if (users.length === 0) {
-    container.innerHTML = '<div class="empty-state">אין שיחות לא פעילות</div>';
-    return;
-  }
-
-  container.innerHTML = users.map(user => `
-    <div class="user-item">
-      <div class="user-info">
-        <strong>${user.userName || user.userNumber || user.userId}</strong>
-        <span class="user-meta">${new Date(user.finishedAt).toLocaleString('he-IL')}</span>
-      </div>
-      <button type="button" class="btn btn-small btn-danger ai-finished-remove-btn" data-user-id="${escapeHtml(user.userId)}">
-        הסר
-      </button>
-    </div>
-  `).join('');
-
-  container.querySelectorAll('.ai-finished-remove-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const userId = btn.dataset.userId;
-      if (!userId) return;
-      if (confirm('האם אתה בטוח שברצונך להסיר שיחה זו מרשימת שיחות לא פעילות?')) {
-        try {
-          const response = await fetch(`${API_URL}/api/gemini/finished-users/${encodeURIComponent(userId)}`, {
-            method: 'DELETE'
-          });
-          const result = await response.json();
-          if (result.success) {
-            toast.success('השיחה הוסרה מהרשימה');
-            delete finishedUsers[userId];
-            updateFinishedUsersDisplay(section, finishedUsers);
-          } else {
-            toast.error('שגיאה במחיקה');
-          }
-        } catch (error) {
-          toast.error(`שגיאה: ${error.message}`);
-        }
       }
     });
   });

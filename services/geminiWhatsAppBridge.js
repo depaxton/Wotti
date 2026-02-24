@@ -104,7 +104,7 @@ export async function handleIncomingMessage(message) {
         ? normalizedFrom
         : null;
     if (canonicalUserId && geminiConversationService.shouldExitByOperatorWords?.(messageText)) {
-      geminiConversationService.stopConversation(canonicalUserId, false);
+      geminiConversationService.stopConversation(canonicalUserId);
       logInfo(`🚪 [Gemini Bridge] Operator said exit word – conversation stopped with ${rawFrom}`);
       return { handled: true };
     }
@@ -129,7 +129,7 @@ export async function handleIncomingMessage(message) {
   }
 
   if (geminiConversationService.shouldExitByUserWords?.(messageText)) {
-    geminiConversationService.stopConversation(canonicalUserId, false);
+    geminiConversationService.stopConversation(canonicalUserId);
     logInfo(`🚪 [Gemini Bridge] User said exit word – conversation stopped with ${rawFrom}`);
     return { handled: true };
   }
@@ -137,7 +137,7 @@ export async function handleIncomingMessage(message) {
   // באירוע הודעה מהלקוח: קוראים את השיחה ובודקים אם ההודעה האחרונה שלנו מכילה מילת טריגר יציאה
   const operatorSaidExit = await geminiConversationService.didOperatorSayExitInLastMessages?.(canonicalUserId);
   if (operatorSaidExit) {
-    geminiConversationService.stopConversation(canonicalUserId, false);
+    geminiConversationService.stopConversation(canonicalUserId);
     logInfo(`🚪 [Gemini Bridge] Operator exit word in last message – conversation stopped with ${rawFrom}, not responding`);
     return { handled: true };
   }
@@ -177,20 +177,20 @@ export async function handleIncomingMessage(message) {
     }
 
     if (result.isManualTakeover) {
-      geminiConversationService.stopConversation(canonicalUserId, false);
+      geminiConversationService.stopConversation(canonicalUserId);
       logInfo(`🔄 [Gemini Bridge] Manual takeover - stopped conversation with ${rawFrom}`);
       return { handled: true };
     }
 
     if (result.isHelpCall) {
-      geminiConversationService.stopConversation(canonicalUserId, false);
+      geminiConversationService.stopConversation(canonicalUserId);
       logInfo(`🆘 [Gemini Bridge] Help call from ${rawFrom} - conversation stopped`);
       return { handled: true };
     }
 
     if (result.isFinishCall) {
-      geminiConversationService.stopConversation(canonicalUserId, true);
-      logInfo(`✅ [Gemini Bridge] Finish call from ${rawFrom} - conversation stopped and marked finished`);
+      geminiConversationService.stopConversation(canonicalUserId);
+      logInfo(`✅ [Gemini Bridge] Finish call from ${rawFrom} - conversation stopped`);
       return { handled: true };
     }
 
@@ -260,7 +260,7 @@ export async function handleIncomingMessage(message) {
     const isBookingSuccess =
       processed.stopConversation || (processed.text && processed.text.includes('התור נקבע בהצלחה'));
     if (isBookingSuccess) {
-      geminiConversationService.stopConversation(canonicalUserId, true);
+      geminiConversationService.stopConversation(canonicalUserId);
       logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${rawFrom}`);
     }
     return { handled: true };
@@ -333,7 +333,7 @@ export async function sendGeminiResponseToUser(userId, responseText) {
     }
     
     if (processed.stopConversation) {
-      geminiConversationService.stopConversation(userId, true);
+      geminiConversationService.stopConversation(userId);
       logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${userId}`);
     }
     return { success: true };

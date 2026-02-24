@@ -19,7 +19,6 @@ const __dirname = path.dirname(__filename);
 
 const CONVERSATIONS_FILE = path.join(__dirname, "../utils/gemini_conversations.json");
 const ACTIVE_USERS_FILE = path.join(__dirname, "../utils/gemini_active_users.json");
-const FINISHED_USERS_FILE = path.join(__dirname, "../utils/gemini_finished_users.json");
 const AUTO_MESSAGES_FILE = path.join(__dirname, "../utils/ai_auto_messages.json");
 const GEMINI_SETTINGS_FILE = path.join(__dirname, "../utils/gemini_settings.json");
 const COMMENTSAI_PATH = path.join(__dirname, "../utils/COMMENTSAI.json");
@@ -114,7 +113,8 @@ function getExitWordsFromOperator() {
 }
 
 /**
- * במצב אוטומטי: אם ההודעה מכילה מילת הפעלה והמשתמש לא פעיל/לא גמור – מפעיל שיחה ומחזיר canonicalUserId
+ * במצב אוטומטי: אם ההודעה מכילה מילת הפעלה והמשתמש לא בשיחה פעילה – מפעיל שיחה ומחזיר canonicalUserId.
+ * הלקוח תמיד יכול לחזור לשיחה פעילה באמצעות מילות הטריגר.
  * @returns {Promise<{activated: boolean, canonicalUserId?: string}>}
  */
 export async function tryActivateByWords(userId, messageText) {
@@ -132,7 +132,6 @@ export async function tryActivateByWords(userId, messageText) {
     const canonical = isUserActive(userId) ? userId : normalized;
     return { activated: false, canonicalUserId: canonical };
   }
-  // משתמש מ"שיחות לא פעילות" (finished) ששולח מילת הפעלה – מאפשרים הפעלה ומעבירים לשיחות פעילות
 
   try {
     const client = getClient();
@@ -153,10 +152,6 @@ export async function tryActivateByWords(userId, messageText) {
 
     const result = await startConversationAnonymous(idToUse, userName, userNumber);
     if (result.success) {
-      if (isUserFinished(idToUse) || isUserFinished(normalized)) {
-        deleteFinishedUser(idToUse);
-        logInfo(`✅ [Auto words] Removed ${idToUse} from finished list (now in active)`);
-      }
       logInfo(`✅ [Auto words] Activated conversation with ${idToUse} (message contained trigger word)`);
       return { activated: true, canonicalUserId: idToUse };
     }
@@ -363,37 +358,6 @@ function normalizeUserId(rawId) {
     return trimmed.replace(/@c\.us$/, "@s.whatsapp.net");
   }
   return trimmed;
-}
-
-/** מנרמל userId לפורמט מספר בלבד למטרות השוואה */
-function normalizeUserIdForLookup(userId) {
-  if (!userId) return null;
-  const match = String(userId).match(/^(\d+)@/);
-  return match ? match[1] : userId;
-}
-
-/** בודק אם משתמש הושלם (לפי מספר טלפון) */
-function isUserFinished(userId) {
-  try {
-    const finishedUsers = loadFinishedUsers();
-    const normalizedId = normalizeUserIdForLookup(userId);
-    if (!normalizedId) return false;
-    for (const finishedUserId in finishedUsers) {
-      if (normalizeUserIdForLookup(finishedUserId) === normalizedId) return true;
-    }
-    return false;
-  } catch (err) {
-    logError("❌ Error checking if user is finished:", err);
-    return false;
-  }
-}
-
-function saveFinishedUsers(finishedUsers) {
-  try {
-    fs.writeFileSync(FINISHED_USERS_FILE, JSON.stringify(finishedUsers, null, 2), "utf8");
-  } catch (err) {
-    logError("❌ Error saving finished users:", err);
-  }
 }
 
 function loadAutoMessages() {
@@ -644,34 +608,18 @@ export async function processIncomingMessageWithBatching(userId, messageText) {
 }
 
 /**
- * עצירת שיחה עם משתמש
+ * עוצר שיחה עם משתמש (מוציא מרשימת הפעילים).
+ * הלקוח יכול לחזור לשיחה פעילה בכל עת באמצעות מילות הטריגר.
  * @param {string} userId - מזהה המשתמש
- * @param {boolean} markAsFinished - האם לסמן את המשתמש כהושלם
  * @returns {boolean}
  */
-export function stopConversation(userId, markAsFinished = false) {
+export function stopConversation(userId) {
   try {
     const activeUsers = loadActiveUsers();
     if (activeUsers[userId]) {
-      const userInfo = activeUsers[userId];
-      const userName = userInfo.userName || null;
-      const userNumber = userInfo.userNumber || null;
-
       delete activeUsers[userId];
       saveActiveUsers(activeUsers);
       logInfo(`✅ Stopped GEMINI conversation with ${userId}`);
-
-      if (markAsFinished) {
-        const finishedUsers = loadFinishedUsers();
-        finishedUsers[userId] = {
-          userId,
-          userName,
-          userNumber,
-          finishedAt: new Date().toISOString(),
-        };
-        saveFinishedUsers(finishedUsers);
-      }
-
       return true;
     }
     return false;
@@ -698,45 +646,6 @@ export function isUserActive(userId) {
 export function getActiveUsers() {
   const activeUsers = loadActiveUsers();
   return Object.values(activeUsers);
-}
-
-/**
- * קבלת המשתמשים שהושלמו
- * @returns {Object}
- */
-export function getFinishedUsers() {
-  return loadFinishedUsers();
-}
-
-/**
- * מחיקת משתמש מרשימת המשתמשים שהושלמו (תמיכה בחיפוש לפי מספר)
- * @param {string} userId - מזהה המשתמש
- * @returns {boolean}
- */
-export function deleteFinishedUser(userId) {
-  try {
-    const finishedUsers = loadFinishedUsers();
-    const normalizedId = normalizeUserIdForLookup(userId);
-    let foundKey = finishedUsers[userId] ? userId : null;
-    if (!foundKey && normalizedId) {
-      for (const key in finishedUsers) {
-        if (normalizeUserIdForLookup(key) === normalizedId) {
-          foundKey = key;
-          break;
-        }
-      }
-    }
-    if (foundKey) {
-      delete finishedUsers[foundKey];
-      saveFinishedUsers(finishedUsers);
-      logInfo(`✅ Deleted finished user ${foundKey}`);
-      return true;
-    }
-    return false;
-  } catch (err) {
-    logError("❌ Error deleting finished user:", err);
-    return false;
-  }
 }
 
 // =============== MODE MANAGEMENT ===============

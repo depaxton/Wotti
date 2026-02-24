@@ -1,5 +1,5 @@
 {
-  "mode": "manual",
+  "mode": "auto",
   "autoModeConfig": {
     "maxRecentChats": 5,
     "maxMessageExchanges": 10,
@@ -7,5 +7,5 @@
     "exitWordsFromUser": "מספיק , תפסיק , נציג אנושי ,אדם , אנושי",
     "exitWordsFromOperator": "אני מטפל , העברה אלי ,ביטלתי"
   },
-  "updatedAt": "2026-02-24T00:35:27.235Z"
+  "updatedAt": "2026-02-24T01:50:16.852Z"
 }
