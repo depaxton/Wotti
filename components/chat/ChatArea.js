@@ -42,7 +42,11 @@ export async function createChatArea(contact) {
   let chatEnabled = true;
   
   try {
-    const settingsResponse = await fetch(`${API_URL}/api/settings`);
+    const settingsResponse = await fetch(`${API_URL}/api/settings`, {
+      cache: "no-cache",
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+    });
     if (settingsResponse.ok) {
       const settings = await settingsResponse.json();
       chatEnabled = settings.chatEnabled !== false; // Default to true
