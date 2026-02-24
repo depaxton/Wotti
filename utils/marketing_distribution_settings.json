@@ -1,13 +1,13 @@
 {
-  "enabled": false,
+  "enabled": true,
   "startHour": 10,
   "startMinute": 0,
-  "endHour": 18,
+  "endHour": 4,
   "endMinute": 0,
   "resumeHour": 8,
   "resumeMinute": 0,
   "dailyLimit": 20,
-  "delayMinutes": 10,
+  "delayMinutes": 1,
   "sentToday": 5,
   "lastResetDate": "2026-02-22",
   "lastSentAt": "2026-02-23T04:07:59.596Z"

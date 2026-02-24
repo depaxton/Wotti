@@ -38,6 +38,16 @@ const INSTRUCTIONS_FILE = path.join(__dirname, '../utils/gemini_instructions.jso
 /** Placeholder בטקסט ההוראות - יוחלף אוטומטית בתאריך/שעה נוכחיים */
 const DATETIME_PLACEHOLDER = '{{CURRENT_DATETIME}}';
 
+/** הוראות קבועות לשליחת הודעות מוכנות (תמונה+טקסט) – מתווספות אוטומטית */
+const READY_MESSAGES_INSTRUCTION = `
+
+**שליחת הודעה מוכנה (תמונה עם caption)**
+כשאתה רוצה לשלוח למשתמש תמונה מוכנה (מהעמודה "הודעות מוכנות") עם התגובה שלך כ-caption:
+- כתוב את התגובה הרגילה שלך, ובסוף הוסף **בדיוק** את המילה: [INDEX=N] כאשר N = מספר INDEX של ההודעה המוכנה (למשל [INDEX=1] או [INDEX=2]).
+- המערכת תמחק את [INDEX=N] מהתגובה, תקח את התבנית של ההודעה המוכנה (שבה מופיעה המילה [TEXT]), תשתיל את התגובה שלך במקום [TEXT], ותשלח למשתמש את התמונה עם ה-caption.
+- דוגמה: "שלום! הנה הפרטים שביקשת. התור נקבע למחר בשעה 10:00. [INDEX=1]"
+`;
+
 /**
  * מחזיר תאריך ושעה מדויקים לפורמט קריא ל-AI.
  * משתמש ב-UTC + שעון ישראל לעקביות ולרלוונטיות מקומית.
@@ -103,10 +113,11 @@ function getModelWithSystemInstructions(instructions) {
     model: DEFAULT_MODEL
   };
   
-  // הוספת System Instructions אם יש
+  // הוספת System Instructions אם יש (כולל הוראות הודעות מוכנות)
   if (instructions && instructions.trim()) {
+    const fullInstructions = instructions.trim() + READY_MESSAGES_INSTRUCTION;
     modelConfig.systemInstruction = {
-      parts: [{ text: instructions }]
+      parts: [{ text: fullInstructions }]
     };
   }
   

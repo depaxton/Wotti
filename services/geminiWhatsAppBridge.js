@@ -11,10 +11,43 @@
  * - נקודת כניסה מרכזית לכל מימוש עתידי של שיחת AI
  */
 
-import { getClient, registerIncomingMessageHandler } from './whatsappClient.js';
+import fs from 'fs/promises';
+import pkg from 'whatsapp-web.js';
+const { MessageMedia } = pkg;
+import { getClient, registerIncomingMessageHandler, isMessageConsideredNew } from './whatsappClient.js';
 import * as geminiConversationService from './geminiConversationService.js';
+import * as readyMessagesService from './readyMessagesService.js';
 import { processAiResponse } from './aiCommandMiddleware.js';
 import { logInfo, logError, logWarn } from '../utils/logger.js';
+
+const INDEX_PATTERN = /\[\s*INDEX\s*=\s*(\d+)\s*\]/gi;
+
+/** מחפש [INDEX=N] בתגובה (N = מספר). מחזיר { index, cleanText } או null */
+function parseIndexFromResponse(text) {
+  const str = String(text || '');
+  logInfo(`🔍 [parseIndex] Input text (last 200 chars): "${str.slice(-200)}"`);
+  
+  // בדיקה פשוטה עם regex חדש (לא גלובלי) כדי למנוע בעיות lastIndex
+  const simpleMatch = str.match(/\[\s*INDEX\s*=\s*(\d+)\s*\]/i);
+  logInfo(`🔍 [parseIndex] Simple match result: ${simpleMatch ? JSON.stringify(simpleMatch[0]) : 'null'}`);
+  
+  if (!simpleMatch) return null;
+  
+  const index = parseInt(simpleMatch[1], 10);
+  // Preserve newlines so QUERY_CATEGORIES / QUERY_TREATMENTS lists stay one option per line; only collapse spaces/tabs
+  const cleanText = str.replace(/\[\s*INDEX\s*=\s*(\d+)\s*\]/gi, ' ').replace(/[ \t]+/g, ' ').trim();
+  logInfo(`🔍 [parseIndex] Found INDEX=${index}, cleanText: "${cleanText.slice(-100)}..."`);
+  return { index, cleanText };
+}
+
+/** מסיר [INDEX=N] מטקסט ומחזיר טקסט מנוקה (לשימוש כשמזהים מהתגובה הגולמית). שומר שורות חדשות כדי שרשימות אופציות יוצגו בשורה נפרדת. */
+function stripIndexFromText(text) {
+  if (!text || typeof text !== 'string') return (text || '').trim();
+  INDEX_PATTERN.lastIndex = 0;
+  const out = text.replace(INDEX_PATTERN, ' ').replace(/[ \t]+/g, ' ').trim();
+  INDEX_PATTERN.lastIndex = 0;
+  return out;
+}
 
 // =============== NORMALIZATION ===============
 
@@ -47,6 +80,11 @@ function normalizeUserId(rawId) {
  */
 export async function handleIncomingMessage(message) {
   if (!message) {
+    return { handled: false };
+  }
+
+  // הודעות מטעינת צ'אטים בהתחלה – לא לטפל, כדי שה-AI לא ייכנס לשיחות בטעות
+  if (!message.fromMe && !isMessageConsideredNew(message)) {
     return { handled: false };
   }
 
@@ -156,28 +194,6 @@ export async function handleIncomingMessage(message) {
       return { handled: true };
     }
 
-    if (result.isFunctionCall && result.messages && result.messages.length > 0) {
-      let shouldStopConversation = false;
-      for (const msg of result.messages) {
-        if (
-          !geminiConversationService.isUserActive?.(canonicalUserId) &&
-          !geminiConversationService.isUserActive?.(normalizedFrom)
-        ) break;
-        const text = msg.text || '';
-        if (text) {
-          const processed = await processAiResponse(text, { userId: canonicalUserId });
-          await client.sendMessage(rawFrom, processed.text, { sendSeen: false });
-          if (processed.stopConversation) shouldStopConversation = true;
-        }
-      }
-      if (shouldStopConversation) {
-        geminiConversationService.stopConversation(canonicalUserId, true);
-        logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${rawFrom}`);
-      }
-      logInfo(`✅ [Gemini Bridge] Sent ${result.messages.length} predefined messages to ${rawFrom}`);
-      return { handled: true };
-    }
-
     if (!result.response) {
       return { handled: true };
     }
@@ -189,16 +205,64 @@ export async function handleIncomingMessage(message) {
       logInfo(`🚪 [Gemini Bridge] User no longer active, not sending final AI response to ${rawFrom}`);
       return { handled: true };
     }
+    // זיהוי [INDEX=N] בתגובה הגולמית לפני processAiResponse – כדי שפקודות middleware (למשל [QUERY_CATEGORIES: ...]) לא "יבלעו" את [INDEX=N]
+    logInfo(`🔍 [Gemini Bridge] Raw AI response (last 300 chars): "${result.response.slice(-300)}"`);
+    const rawParsed = parseIndexFromResponse(result.response);
+    logInfo(`🔍 [Gemini Bridge] rawParsed: ${rawParsed ? JSON.stringify(rawParsed) : 'null'}`);
+    
     const processed = await processAiResponse(result.response, { userId: canonicalUserId });
-    await client.sendMessage(rawFrom, processed.text, { sendSeen: false });
+    logInfo(`🔍 [Gemini Bridge] processed.text (last 300 chars): "${processed.text.slice(-300)}"`);
+    
+    const parsed = rawParsed
+      ? { index: rawParsed.index, cleanText: stripIndexFromText(processed.text) }
+      : parseIndexFromResponse(processed.text);
+    logInfo(`🔍 [Gemini Bridge] Final parsed: ${parsed ? JSON.stringify({ index: parsed.index, cleanTextLen: parsed.cleanText?.length }) : 'null'}`);
+    
+    if (parsed) {
+      logInfo(`🔍 [Gemini Bridge] parsed found! index=${parsed.index}, calling getMessageByIndex...`);
+      const readyMsg = await readyMessagesService.getMessageByIndex(parsed.index);
+      logInfo(`🔍 [Gemini Bridge] readyMsg result: ${readyMsg ? JSON.stringify({ id: readyMsg.id, index: readyMsg.index, mediaPath: readyMsg.mediaPath, mimeType: readyMsg.mimeType, text: readyMsg.text }) : 'null'}`);
+      
+      if (readyMsg) {
+        const caption = (readyMsg.text || '').replace(/\[TEXT\]/g, parsed.cleanText);
+        logInfo(`🔍 [Gemini Bridge] caption after [TEXT] replacement: "${caption.slice(0, 200)}..."`);
+        
+        if (readyMsg.mediaPath && readyMsg.mimeType) {
+          logInfo(`🔍 [Gemini Bridge] Has media! mediaPath=${readyMsg.mediaPath}, mimeType=${readyMsg.mimeType}`);
+          try {
+            const fullPath = readyMessagesService.getMediaPath(readyMsg.mediaPath);
+            logInfo(`🔍 [Gemini Bridge] Full media path: ${fullPath}`);
+            const buffer = await fs.readFile(fullPath);
+            logInfo(`🔍 [Gemini Bridge] Read file successfully, size=${buffer.length} bytes`);
+            const base64 = buffer.toString('base64');
+            const messageMedia = new MessageMedia(readyMsg.mimeType, base64);
+            logInfo(`🔍 [Gemini Bridge] Sending media message to ${rawFrom}...`);
+            await client.sendMessage(rawFrom, messageMedia, { caption, sendSeen: false });
+            logInfo(`✅ [Gemini Bridge] Media message sent successfully!`);
+          } catch (err) {
+            logError('❌ [Gemini Bridge] Failed to send ready message media, falling back to caption:', err);
+            if (caption) await client.sendMessage(rawFrom, caption, { sendSeen: false });
+          }
+        } else if (caption) {
+          logInfo(`🔍 [Gemini Bridge] No media, sending caption only`);
+          await client.sendMessage(rawFrom, caption, { sendSeen: false });
+        }
+        logInfo(`✅ [Gemini Bridge] Sent ready message INDEX=${parsed.index} (with [TEXT] substitution) to ${rawFrom}`);
+      } else {
+        // אין הודעה מוכנה עם האינדקס – שולחים רק את הטקסט המנוקה (בלי [INDEX=N]) כדי שהמשתמש לא יראה את התגית
+        await client.sendMessage(rawFrom, parsed.cleanText, { sendSeen: false });
+        logInfo(`✅ [Gemini Bridge] [INDEX=${parsed.index}] not found – sent clean text only to ${rawFrom}`);
+      }
+    } else {
+      await client.sendMessage(rawFrom, processed.text, { sendSeen: false });
+      logInfo(`✅ [Gemini Bridge] Sent AI response to ${rawFrom}`);
+    }
     const isBookingSuccess =
       processed.stopConversation || (processed.text && processed.text.includes('התור נקבע בהצלחה'));
     if (isBookingSuccess) {
       geminiConversationService.stopConversation(canonicalUserId, true);
       logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${rawFrom}`);
     }
-    logInfo(`✅ [Gemini Bridge] Sent AI response to ${rawFrom}`);
-
     return { handled: true };
   } catch (err) {
     logError('❌ [Gemini Bridge] Error handling message:', err);
@@ -233,8 +297,41 @@ export async function sendGeminiResponseToUser(userId, responseText) {
     if (!client) {
       return { success: false, error: 'WhatsApp client not available' };
     }
+    
+    // בדיקת [INDEX=N] לפני processAiResponse
+    const rawParsed = parseIndexFromResponse(responseText || '');
     const processed = await processAiResponse(responseText || '', { userId });
-    await client.sendMessage(userId, processed.text, { sendSeen: false });
+    const parsed = rawParsed
+      ? { index: rawParsed.index, cleanText: stripIndexFromText(processed.text) }
+      : parseIndexFromResponse(processed.text);
+    
+    if (parsed) {
+      const readyMsg = await readyMessagesService.getMessageByIndex(parsed.index);
+      if (readyMsg) {
+        const caption = (readyMsg.text || '').replace(/\[TEXT\]/g, parsed.cleanText);
+        if (readyMsg.mediaPath && readyMsg.mimeType) {
+          try {
+            const fullPath = readyMessagesService.getMediaPath(readyMsg.mediaPath);
+            const buffer = await fs.readFile(fullPath);
+            const base64 = buffer.toString('base64');
+            const messageMedia = new MessageMedia(readyMsg.mimeType, base64);
+            await client.sendMessage(userId, messageMedia, { caption, sendSeen: false });
+          } catch (err) {
+            logError('❌ [Gemini Bridge] sendGeminiResponseToUser - failed to send media:', err);
+            if (caption) await client.sendMessage(userId, caption, { sendSeen: false });
+          }
+        } else if (caption) {
+          await client.sendMessage(userId, caption, { sendSeen: false });
+        }
+        logInfo(`✅ [Gemini Bridge] sendGeminiResponseToUser - sent ready message INDEX=${parsed.index} to ${userId}`);
+      } else {
+        await client.sendMessage(userId, parsed.cleanText, { sendSeen: false });
+        logInfo(`✅ [Gemini Bridge] sendGeminiResponseToUser - INDEX=${parsed.index} not found, sent clean text to ${userId}`);
+      }
+    } else {
+      await client.sendMessage(userId, processed.text, { sendSeen: false });
+    }
+    
     if (processed.stopConversation) {
       geminiConversationService.stopConversation(userId, true);
       logInfo(`✅ [Gemini Bridge] Appointment booked – conversation ended with ${userId}`);

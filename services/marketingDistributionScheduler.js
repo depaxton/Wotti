@@ -76,13 +76,16 @@ async function tick() {
     logInfo(`Marketing distribution: sent to ${phone} (message #${msg.id})`);
   } catch (e) {
     const errMsg = (e && (e.message || e.toString())) || "";
-    if (errMsg.includes("No LID for user") && phone) {
+    if (phone) {
       await addToNoWhatsAppSend(phone, name || "");
       await removeFromToSend(phone);
-      logWarn(`Marketing distribution: No LID for user ${phone}, moved to "אין אפשרות שליחה עקב וואטסאפ", continuing to next`);
-      return;
+      logError(`Marketing distribution: שגיאה בשליחה ל־${phone} – הועבר לרשימת לא הצליח. השגיאה: ${errMsg}`, e);
+      // אחרי כישלון: 10 שניות בלבד ואז ניסיון לבא בתור (בלי להמתין את ההשהייה מההגדרות)
+      logInfo("Marketing distribution: ממתין 10 שניות לפני ניסיון לשלוח לבא בתור");
+      setTimeout(() => tick().catch((err) => logError("marketingDistributionScheduler tick (after failure)", err)), 10 * 1000);
+    } else {
+      logError("marketingDistributionScheduler tick", e);
     }
-    logError("marketingDistributionScheduler tick", e);
   }
 }
 

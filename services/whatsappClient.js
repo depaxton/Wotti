@@ -14,6 +14,8 @@ let currentQRCode = null;
 let qrCodeCallbacks = [];
 let isReinitializing = false;
 let hasNewMessage = false; // Flag to track if a new message was received
+/** Unix timestamp (seconds) when client became ready – הודעות לפני זה נחשבות טעינה ראשונית, לא "הודעה חדשה" */
+let clientReadyTimestamp = 0;
 
 /** רשימת מטפלים להודעות נכנסות - כל קוד שרוצה לטפל בהודעות נרשם כאן (למשל Gemini Bridge) */
 const incomingMessageHandlers = [];
@@ -278,6 +280,7 @@ function registerEventListeners(clientInstance) {
   clientInstance.on("ready", () => {
     logInfo("WhatsApp client is ready!");
     currentQRCode = null; // Clear QR code when ready
+    clientReadyTimestamp = Math.floor(Date.now() / 1000); // כדי לא לספור הודעות מטעינת צ'אטים כהודעות חדשות
     qrCodeCallbacks.forEach((callback) => callback(null, "ready"));
 
     // עצור את הלופ כשהוא מוכן
@@ -404,8 +407,12 @@ function registerEventListeners(clientInstance) {
   // Message event - listen for incoming messages (כולל הודעות מאיתנו – לצורך מילות טריגר מפעיל ב-Gemini Bridge)
   clientInstance.on("message", async (message) => {
     if (!message.fromMe) {
-      logInfo(`New incoming message received from ${message.from}`);
-      hasNewMessage = true;
+      const msgTime = message.timestamp != null ? Number(message.timestamp) : 0;
+      const cutoff = clientReadyTimestamp ? clientReadyTimestamp - 60 : 0; // הודעות מלפני minute מההתחברות = טעינה, לא חדשות
+      if (msgTime >= cutoff) {
+        logInfo(`New incoming message received from ${message.from}`);
+        hasNewMessage = true;
+      }
     }
 
     for (const handler of incomingMessageHandlers) {
@@ -551,6 +558,18 @@ export function checkAndResetNewMessage() {
     return true;
   }
   return false;
+}
+
+/**
+ * Whether this message should be treated as "new" (after client ready). הודעות מטעינת צ'אטים לא נחשבות חדשות.
+ * @param {{ timestamp?: number }} message - אובייקט הודעה מ-whatsapp-web.js
+ * @returns {boolean}
+ */
+export function isMessageConsideredNew(message) {
+  if (!message || message.fromMe) return false;
+  const msgTime = message.timestamp != null ? Number(message.timestamp) : 0;
+  const cutoff = clientReadyTimestamp ? clientReadyTimestamp - 60 : 0;
+  return msgTime >= cutoff;
 }
 
 /**

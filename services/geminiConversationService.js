@@ -515,7 +515,9 @@ export async function startConversation(userId, userName, userNumber) {
     }
 
     const initialMessage = geminiResult.text;
-    await client.sendMessage(userId, initialMessage, { sendSeen: false });
+    // שליחת ההודעה הראשונית דרך Bridge כדי לתמוך ב-[INDEX=N]
+    const { sendGeminiResponseToUser } = await import('./geminiWhatsAppBridge.js');
+    await sendGeminiResponseToUser(userId, initialMessage);
 
     activeUsers[userId] = {
       userId,
@@ -531,44 +533,6 @@ export async function startConversation(userId, userName, userNumber) {
     logError("❌ Error starting conversation:", err);
     return { success: false, error: err.message };
   }
-}
-
-/**
- * פרסור תשובת Gemini ל-function call (אינדקסים/help)
- * @param {string} response - תשובת Gemini
- * @returns {object|null} parsed או null
- */
-function parseFunctionCallResponse(response) {
-  try {
-    return JSON.parse(response);
-  } catch (e) {
-    const jsonMatch = response.match(/\{[\s\S]*type[\s\S]*function[\s\S]*msg[\s\S]*\[[\s\S]*\][\s\S]*\}/i);
-    if (jsonMatch) {
-      try {
-        const jsonStr = jsonMatch[0].replace(/type\s*:\s*function/gi, '"type": "function"');
-        return JSON.parse(jsonStr);
-      } catch (e2) {}
-    }
-    const simpleMatch = response.match(/\{\s*type\s*:\s*(?:function|"function"|'function')\s*,\s*msg\s*:\s*\[([\d,\s]+)\]\s*\}/i);
-    if (simpleMatch) {
-      const indices = simpleMatch[1]
-        .split(",")
-        .map((s) => parseInt(s.trim()))
-        .filter((n) => !isNaN(n));
-      if (indices.length > 0) return { type: "function", msg: indices };
-    }
-    const flexibleMatch = response.match(/type\s*[:=]\s*(?:function|"function"|'function')\s*[,;]?\s*msg\s*[:=]\s*\[([\d,\s]+)\]/i);
-    if (flexibleMatch) {
-      const indices = flexibleMatch[1]
-        .split(",")
-        .map((s) => parseInt(s.trim()))
-        .filter((n) => !isNaN(n));
-      if (indices.length > 0) return { type: "function", msg: indices };
-    }
-    const helpMatch = response.match(/\{\s*type\s*:\s*(?:function|"function"|'function')\s*,\s*msg\s*:\s*["']?help["']?\s*\}/i);
-    if (helpMatch) return { type: "function", msg: "help" };
-  }
-  return null;
 }
 
 /**
@@ -629,26 +593,6 @@ export async function processIncomingMessage(userId, messageText) {
     if (response.toLowerCase().trim() === "finish") {
       logInfo(`✅ GEMINI finish request detected`);
       return { success: true, isFinishCall: true, userId };
-    }
-
-    const parsedResponse = parseFunctionCallResponse(response);
-    if (parsedResponse && parsedResponse.type === "function") {
-      if (typeof parsedResponse.msg === "string" && parsedResponse.msg.toLowerCase() === "help") {
-        return { success: true, isHelpCall: true, userId };
-      }
-      if (Array.isArray(parsedResponse.msg)) {
-        const autoMessages = loadAutoMessages();
-        const messagesToSend = [];
-        for (const index of parsedResponse.msg) {
-          const m = autoMessages.messages.find((msg) => msg.index === index);
-          if (m) messagesToSend.push(m);
-        }
-        if (messagesToSend.length > 0) {
-          logInfo(`🔧 Function call: sending ${messagesToSend.length} predefined messages`);
-          return { success: true, isFunctionCall: true, messages: messagesToSend };
-        }
-        return { success: true, response: comment("noReadyMessages") };
-      }
     }
 
     await new Promise((resolve) => setTimeout(resolve, 3000));

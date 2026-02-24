@@ -300,16 +300,16 @@ export async function sendOneController(req, res) {
     res.json({ success: true, phone, name, messageId: msg.id });
   } catch (e) {
     const errMsg = (e && (e.message || e.toString())) || "";
-    if (errMsg.includes("No LID for user") && phone) {
+    if (phone) {
       await addToNoWhatsAppSend(phone, name || "");
       await removeFromToSend(phone);
-      logInfo(`Marketing distribution send-one: No LID for user ${phone}, moved to "אין אפשרות שליחה עקב וואטסאפ"`);
+      logError(`Marketing distribution send-one: שגיאה בשליחה ל־${phone} – הועבר לרשימת לא הצליח. השגיאה: ${errMsg}`, e);
       return res.json({
         success: false,
-        noLid: true,
         phone,
         name,
-        message: "No LID for user – הועבר לרשימה 'אין אפשרות שליחה עקב וואטסאפ' והוסר מרשימה לשליחה",
+        error: errMsg,
+        message: "נכשל בשליחה – הועבר לרשימת לא הצליח בגלל תקלה ומתקדם הלאה",
       });
     }
     logError("marketingDistribution sendOne", e);

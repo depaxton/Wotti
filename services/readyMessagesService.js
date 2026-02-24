@@ -183,6 +183,16 @@ export async function getMessageById(id) {
 }
 
 /**
+ * Get message by index (for AI function call – הודעות מוכנות)
+ */
+export async function getMessageByIndex(index) {
+  const { messages } = await readData();
+  const num = typeof index === 'number' ? index : parseInt(index, 10);
+  if (Number.isNaN(num)) return null;
+  return messages.map(normalizeMessage).find((m) => m && m.index === num) || null;
+}
+
+/**
  * Resolve full path for a media filename (for serving)
  */
 export function getMediaPath(filename) {
