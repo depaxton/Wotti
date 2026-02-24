@@ -396,10 +396,11 @@
 
 .marketing-list-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 12px;
-  min-height: 480px;
-  max-height: 620px;
+  max-height: min(620px, 50vh);
 }
 
 .marketing-list-item {
@@ -416,7 +417,7 @@
 
 .marketing-list-item-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
@@ -432,10 +433,25 @@
   direction: ltr;
   text-align: right;
   font-family: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marketing-list-item-cols .marketing-btn-icon {
+  flex-shrink: 0;
+  min-width: 36px;
 }
 
 .marketing-list-item-cols .marketing-list-item-sent-at {
   grid-column: span 1;
+}
+
+#mdToSendList .marketing-list-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 #mdSentList .marketing-list-item-cols {
@@ -463,6 +479,7 @@
 }
 
 .marketing-add-to-send {
+  flex-shrink: 0;
   padding: 12px;
   border-top: 1px solid rgba(0,0,0,0.06);
   display: flex;
