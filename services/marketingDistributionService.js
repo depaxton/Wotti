@@ -114,15 +114,24 @@ export async function getToSendList() {
 }
 
 export async function setToSendList(phonesOrItems) {
-  const neverList = await getNeverSendList();
-  const neverSet = neverSendPhonesSet(neverList);
+  const [neverList, sentList] = await Promise.all([getNeverSendList(), getSentList()]);
+  const neverSet = new Set(
+    (neverList || []).map((e) =>
+      normalizePhoneForStorage(typeof e === "object" && e && e.phone != null ? e.phone : e)
+    )
+  );
+  const sentSet = new Set(
+    (sentList || []).map((e) => normalizePhoneForStorage(e && e.phone))
+  );
   const arr = Array.isArray(phonesOrItems) ? phonesOrItems : [];
   const seen = new Set();
   const normalized = [];
   for (const p of arr) {
     const entry = toSendEntry(p);
-    if (!entry || !entry.phone.length || neverSet.has(entry.phone) || seen.has(entry.phone)) continue;
-    seen.add(entry.phone);
+    if (!entry || !entry.phone.length) continue;
+    const norm = normalizePhoneForStorage(entry.phone);
+    if (neverSet.has(norm) || sentSet.has(norm) || seen.has(norm)) continue;
+    seen.add(norm);
     normalized.push(entry);
   }
   await writeJson(FILES.toSend, normalized);
@@ -130,22 +139,57 @@ export async function setToSendList(phonesOrItems) {
 }
 
 export async function addToSend(phone, name = "") {
-  const [list, neverList] = await Promise.all([getToSendList(), getNeverSendList()]);
+  const [list, neverList, sentList] = await Promise.all([
+    getToSendList(),
+    getNeverSendList(),
+    getSentList(),
+  ]);
   const entry = toSendEntry({ phone, name });
-  if (!entry || phoneSet(list).has(entry.phone) || neverSendPhonesSet(neverList).has(entry.phone)) return list;
+  if (!entry) return list;
+  const sentSet = new Set(
+    (sentList || []).map((e) => normalizePhoneForStorage(e && e.phone))
+  );
+  const neverNormSet = new Set(
+    (neverList || []).map((e) =>
+      normalizePhoneForStorage(typeof e === "object" && e && e.phone != null ? e.phone : e)
+    )
+  );
+  if (
+    phoneSet(list).has(entry.phone) ||
+    neverNormSet.has(entry.phone) ||
+    sentSet.has(entry.phone)
+  )
+    return list;
   list.push(entry);
   await writeJson(FILES.toSend, list);
   return list;
 }
 
 export async function addManyToSend(phonesOrItems) {
-  const [list, neverList] = await Promise.all([getToSendList(), getNeverSendList()]);
-  const neverSet = neverSendPhonesSet(neverList);
+  const [list, neverList, sentList] = await Promise.all([
+    getToSendList(),
+    getNeverSendList(),
+    getSentList(),
+  ]);
+  const neverSet = new Set(
+    (neverList || []).map((e) =>
+      normalizePhoneForStorage(typeof e === "object" && e && e.phone != null ? e.phone : e)
+    )
+  );
+  const sentSet = new Set(
+    (sentList || []).map((e) => normalizePhoneForStorage(e && e.phone))
+  );
   const listPhones = phoneSet(list);
   const toAdd = [];
   for (const p of Array.isArray(phonesOrItems) ? phonesOrItems : []) {
     const entry = toSendEntry(p);
-    if (!entry || !entry.phone.length || listPhones.has(entry.phone) || neverSet.has(entry.phone)) continue;
+    if (!entry || !entry.phone.length) continue;
+    if (
+      listPhones.has(entry.phone) ||
+      neverSet.has(entry.phone) ||
+      sentSet.has(entry.phone)
+    )
+      continue;
     listPhones.add(entry.phone);
     toAdd.push(entry);
   }
@@ -158,7 +202,9 @@ export async function addManyToSend(phonesOrItems) {
 export async function removeFromToSend(phone) {
   const list = await getToSendList();
   const normalized = normalizePhoneForStorage(phone);
-  const filtered = list.filter((e) => (e && e.phone) !== normalized);
+  const filtered = list.filter(
+    (e) => e && e.phone && normalizePhoneForStorage(e.phone) !== normalized
+  );
   if (filtered.length === list.length) return list;
   await writeJson(FILES.toSend, filtered);
   return filtered;
@@ -270,16 +316,27 @@ export function phoneToChatId(phone) {
   return digits ? `${digits}@c.us` : null;
 }
 
-// Returns to-send entries that are not in sent and not in neverSend (eligible for sending)
+// Returns to-send entries that are not in sent and not in neverSend (eligible for sending).
+// Uses normalized phone for comparison so 050... and 972... are treated as the same.
 export async function getEligibleToSend() {
   const [toSend, sentList, neverList] = await Promise.all([
     getToSendList(),
     getSentList(),
     getNeverSendList(),
   ]);
-  const sentSet = getSentSet(sentList);
-  const neverSet = neverSendPhonesSet(neverList);
-  return toSend.filter((e) => e && e.phone && !sentSet.has(e.phone) && !neverSet.has(e.phone));
+  const sentSet = new Set(
+    (sentList || []).map((e) => normalizePhoneForStorage(e && e.phone))
+  );
+  const neverSet = new Set(
+    (neverList || []).map((e) =>
+      normalizePhoneForStorage(typeof e === "object" && e && e.phone != null ? e.phone : e)
+    )
+  );
+  return toSend.filter((e) => {
+    if (!e || !e.phone) return false;
+    const norm = normalizePhoneForStorage(e.phone);
+    return !sentSet.has(norm) && !neverSet.has(norm);
+  });
 }
 
 // --- Settings ---
