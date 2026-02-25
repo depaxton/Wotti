@@ -1,6 +1,7 @@
 // Meeting Calendar Component
 
 import { getDayName, getWeekStart, formatDateString, getCurrentDate, getDayIndex, getNextDayOfWeek, parseTime, parseDateString } from '../../utils/dateUtils.js';
+import { toast } from '../toast/Toast.js';
 
 /**
  * Creates and returns the meeting calendar panel
@@ -38,10 +39,50 @@ export async function createMeetingCalendarPanel() {
   let currentDate = getCurrentDate();
   let meetings = [];
 
+  const API_URL = window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : `${window.location.protocol}//${window.location.hostname}:5000`;
+
   // Load reminders from server (defined below)
   const loadAndRender = async () => {
     meetings = await loadRemindersFromServer();
     render();
+  };
+
+  // Delete reminder (from calendar) – removes everywhere and refreshes
+  const deleteReminderFromCalendar = async (phoneNumber, reminderId, onSuccess) => {
+    if (!confirm("האם אתה בטוח שברצונך למחוק את התזכורת?")) {
+      return;
+    }
+    try {
+      const encodedPhone = encodeURIComponent(phoneNumber);
+      const res = await fetch(`${API_URL}/api/users/${encodedPhone}/reminders`);
+      if (!res.ok) throw new Error("Failed to load reminders");
+      const list = await res.json();
+      if (!Array.isArray(list)) throw new Error("Invalid reminders response");
+      const filtered = list.filter((r) => r.id !== reminderId);
+      if (filtered.length === list.length) {
+        toast.error("התזכורת לא נמצאה");
+        return;
+      }
+      const saveRes = await fetch(`${API_URL}/api/users/${encodedPhone}/reminders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ reminders: filtered }),
+        credentials: "omit",
+        cache: "no-cache",
+      });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${saveRes.status}`);
+      }
+      toast.success("התזכורת נמחקה בהצלחה");
+      await loadAndRender();
+      if (typeof onSuccess === "function") onSuccess();
+    } catch (err) {
+      console.error("Delete reminder failed:", err);
+      toast.error(`שגיאה במחיקת התזכורת: ${err.message || "שגיאה לא ידועה"}`);
+    }
   };
 
   // רענון אוטומטי כל דקה - כדי שתורים שקבע ה-AI יופיעו אוטומטית
@@ -215,10 +256,15 @@ export async function createMeetingCalendarPanel() {
           ${dayMeetings.length === 0 
             ? '<div class="no-meetings">אין פגישות</div>'
             : dayMeetings.map(meeting => `
-                <div class="meeting-item ${meeting.categoryId ? 'meeting-item--category' : ''}" data-meeting-id="${meeting.id}">
-                  <div class="meeting-time">${meeting.time}</div>
-                  <div class="meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
-                  ${meeting.location ? `<div class="meeting-location">${meeting.location}</div>` : ''}
+                <div class="meeting-item ${meeting.categoryId ? 'meeting-item--category' : ''}" data-meeting-id="${meeting.id}" data-reminder-id="${meeting.reminder?.id ?? meeting.id}" data-phone="${(meeting.phoneNumber || '').replace(/"/g, '&quot;')}">
+                  <div class="meeting-item-content">
+                    <div class="meeting-time">${meeting.time}</div>
+                    <div class="meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
+                    ${meeting.location ? `<div class="meeting-location">${meeting.location}</div>` : ''}
+                  </div>
+                  <button type="button" class="meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                  </button>
                 </div>
               `).join('')
           }
@@ -373,10 +419,10 @@ export async function createMeetingCalendarPanel() {
   };
 
   // Show day details modal
-  const showDayDetails = (date, meetings) => {
+  const showDayDetails = (date, dayMeetings) => {
     const modal = document.createElement("div");
     modal.className = "day-details-modal";
-    
+
     const dayName = getDayName(date.getDay());
     const dayNumber = date.getDate();
     const month = date.getMonth() + 1;
@@ -394,18 +440,28 @@ export async function createMeetingCalendarPanel() {
           </button>
         </div>
         <div class="day-details-meetings">
-          ${meetings.length === 0 
+          ${dayMeetings.length === 0
             ? '<div class="no-meetings">אין פגישות ביום זה</div>'
-            : meetings.map(meeting => `
-                <div class="day-meeting-item ${meeting.categoryId ? 'day-meeting-item--category' : ''}">
-                  <div class="day-meeting-time">${meeting.time}</div>
-                  <div class="day-meeting-info">
-                    <div class="day-meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="day-meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
-                    ${meeting.location ? `<div class="day-meeting-location">${meeting.location}</div>` : ''}
-                    ${meeting.description ? `<div class="day-meeting-description">${meeting.description}</div>` : ''}
+            : dayMeetings.map(meeting => {
+                const reminderId = meeting.reminder?.id ?? meeting.id;
+                const phone = (meeting.phoneNumber || '').replace(/"/g, '&quot;');
+                return `
+                <div class="day-meeting-item ${meeting.categoryId ? 'day-meeting-item--category' : ''}" data-reminder-id="${reminderId}" data-phone="${phone}">
+                  <div class="day-meeting-main">
+                    <div class="day-meeting-time">${meeting.time}</div>
+                    <div class="day-meeting-info">
+                      <div class="day-meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="day-meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
+                      ${meeting.location ? `<div class="day-meeting-location">${meeting.location}</div>` : ''}
+                      ${meeting.description ? `<div class="day-meeting-description">${meeting.description}</div>` : ''}
+                    </div>
                   </div>
+                  <button type="button" class="day-meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    <span>מחק</span>
+                  </button>
                 </div>
-              `).join('')
+              `;
+              }).join('')
           }
         </div>
       </div>
@@ -423,6 +479,20 @@ export async function createMeetingCalendarPanel() {
         modal.remove();
       }
     });
+
+    // Delete button in day details
+    modal.querySelectorAll('.day-meeting-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.day-meeting-item');
+        if (!item) return;
+        const reminderId = item.dataset.reminderId;
+        const phone = item.dataset.phone;
+        if (reminderId && phone) {
+          deleteReminderFromCalendar(phone, reminderId, () => modal.remove());
+        }
+      });
+    });
   };
 
   // Get meetings for a specific date
@@ -430,6 +500,21 @@ export async function createMeetingCalendarPanel() {
     const dateStr = formatDateString(date);
     return meetings.filter(meeting => meeting.date === dateStr);
   };
+
+  // Delete button click (event delegation for week view meeting items)
+  contentContainer.addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest(".meeting-delete-btn");
+    if (!deleteBtn) return;
+    const item = deleteBtn.closest(".meeting-item");
+    if (!item) return;
+    const reminderId = item.dataset.reminderId;
+    const phone = item.dataset.phone;
+    if (reminderId && phone) {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteReminderFromCalendar(phone, reminderId);
+    }
+  });
 
   // Tab click handlers
   tabsContainer.querySelectorAll('.tab-button').forEach(btn => {
