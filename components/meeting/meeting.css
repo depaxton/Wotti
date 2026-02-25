@@ -286,20 +286,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--color-medium-grey);
+  border-radius: 10px;
+  background: #dc3545;
+  color: white;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.35);
 }
 
 .meeting-delete-btn:hover {
-  background: rgba(200, 60, 60, 0.12);
-  color: #c0392b;
+  background: #c82333;
+  transform: scale(1.05);
 }
 
 .meeting-item--category {
@@ -649,22 +650,23 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 12px 18px;
   border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--color-medium-grey);
+  border-radius: 10px;
+  background: #dc3545;
+  color: white;
   font-family: var(--font-hebrew);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
 }
 
 .day-meeting-delete-btn:hover {
-  background: rgba(200, 60, 60, 0.12);
-  color: #c0392b;
+  background: #c82333;
+  transform: scale(1.03);
 }
 
 .day-meeting-item:last-child {
