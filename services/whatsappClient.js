@@ -115,6 +115,13 @@ export async function initializeClient(forceReinit = false) {
           "--disable-gpu",
           "--disable-software-rasterizer",
           "--disable-web-security",
+          "--disable-background-networking",
+          "--disable-default-apps",
+          "--disable-extensions",
+          "--disable-sync",
+          "--disable-translate",
+          "--mute-audio",
+          "--no-default-browser-check",
         ],
       },
       webVersionCache: {
@@ -192,7 +199,7 @@ async function startLoadingDetection(clientInstance) {
       return;
     }
 
-    // לופ כל שנייה לבדיקת טקסט "בטעינה"
+    // לופ כל 4 שניות לבדיקת טקסט "בטעינה" (מופחת מתדירות + בדיקה קלה על body בלבד – חוסך CPU)
     loadingCheckInterval = setInterval(async () => {
       try {
         // בדוק אם הדף עדיין זמין
@@ -202,19 +209,10 @@ async function startLoadingDetection(clientInstance) {
           return;
         }
 
-        // בדוק אם הטקסט "בטעינה" קיים בדף
+        // בדיקה קלה: רק תוכן body (ללא סריקת כל האלמנטים)
         const hasLoadingText = await page.evaluate(() => {
-          // חיפוש בכל האלמנטים בדף
-          const allElements = document.querySelectorAll("*");
-
-          for (const element of allElements) {
-            const text = element.innerText || element.textContent || "";
-            if (text.includes("בטעינה")) {
-              return true;
-            }
-          }
-
-          return false;
+          const text = document.body?.innerText ?? document.body?.textContent ?? "";
+          return text.includes("בטעינה");
         });
 
         if (hasLoadingText) {
@@ -231,7 +229,7 @@ async function startLoadingDetection(clientInstance) {
         clearInterval(loadingCheckInterval);
         loadingCheckInterval = null;
       }
-    }, 1000); // כל שנייה (1000ms)
+    }, 4000); // כל 4 שניות (הופחת מ-1 שנייה לחיסכון ב-CPU)
   } catch (error) {
     logWarn("Could not start loading detection:", error.message);
   }
