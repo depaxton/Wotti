@@ -6,9 +6,9 @@
   "endMinute": 0,
   "resumeHour": 8,
   "resumeMinute": 0,
-  "dailyLimit": 20,
-  "delayMinutes": 1,
-  "sentToday": 5,
-  "lastResetDate": "2026-02-22",
+  "dailyLimit": 32,
+  "delayMinutes": 10,
+  "sentToday": 0,
+  "lastResetDate": "2026-02-24",
   "lastSentAt": "2026-02-23T04:07:59.596Z"
 }
