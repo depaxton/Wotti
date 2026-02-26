@@ -24,7 +24,7 @@ let messageIdSet = new Set(); // Track known message IDs to avoid duplicates
 let loadOlderButton = null; // Reference to the "Load Older" button
 let renderedMessageIds = new Set(); // Track which message IDs are already rendered in DOM
 let shouldFullRender = true; // Flag to determine if we should do a full render
-let currentLimit = 50; // Current limit for loading messages (starts at 50, increases by 50 each time, max 1000)
+let currentLimit = 30; // Current limit for loading messages (starts at 30, increases by 50 each time, max 1000)
 
 /**
  * Creates and displays chat area for a contact
@@ -37,24 +37,24 @@ export async function createChatArea(contact) {
   // Cleanup previous chat
   cleanupChatHeader();
 
-  // Check if chat is enabled
   const API_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : `${window.location.protocol}//${window.location.hostname}:5000`;
   let chatEnabled = true;
-  
-  try {
-    const settingsResponse = await fetch(`${API_URL}/api/settings`, {
+
+  // Load settings and mobile nav in parallel for faster startup
+  const [settingsResult, mobileNavModule] = await Promise.all([
+    fetch(`${API_URL}/api/settings`, {
       cache: "no-cache",
       credentials: "omit",
       headers: { Accept: "application/json" },
-    });
-    if (settingsResponse.ok) {
-      const settings = await settingsResponse.json();
-      chatEnabled = settings.chatEnabled !== false; // Default to true
-    }
-  } catch (error) {
-    console.error("Error loading chat enabled setting:", error);
-    chatEnabled = true; // Default to true on error
-  }
+    })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch((err) => {
+        console.error("Error loading chat enabled setting:", err);
+        return {};
+      }),
+    import("../../utils/mobileNavigation.js"),
+  ]);
+  chatEnabled = settingsResult.chatEnabled !== false;
 
   currentChatId = contact.id;
   messages = [];
@@ -65,7 +65,7 @@ export async function createChatArea(contact) {
   messageIdSet = new Set();
   renderedMessageIds = new Set();
   shouldFullRender = true;
-  currentLimit = 50; // Reset limit for new chat
+  currentLimit = 30; // Reset limit for new chat
 
   if (chatEnabled) {
     // Show split view with chat and reminders
@@ -95,11 +95,12 @@ export async function createChatArea(contact) {
       </div>
     `;
 
-    // Create reminder interface in left panel
+    // Create reminder interface in left panel (don't block - load in parallel with messages)
     const reminderContainer = document.getElementById("reminderContainer");
     if (reminderContainer) {
-      const reminderInterface = await createReminderInterface(contact);
-      reminderContainer.appendChild(reminderInterface);
+      createReminderInterface(contact).then((reminderInterface) => {
+        reminderContainer.appendChild(reminderInterface);
+      });
     }
 
     // Create components
@@ -108,7 +109,7 @@ export async function createChatArea(contact) {
     headerContainer.appendChild(header);
 
     // Add mobile back button if on mobile
-    const { isMobile, createMobileBackButton, showContactsSidebar } = await import("../../utils/mobileNavigation.js");
+    const { isMobile, createMobileBackButton, showContactsSidebar } = mobileNavModule;
     if (isMobile()) {
       const backButton = createMobileBackButton(() => {
         // Clear chat area when going back
@@ -623,7 +624,7 @@ export function cleanupChatArea() {
   messageIdSet = new Set();
   renderedMessageIds = new Set();
   shouldFullRender = true;
-  currentLimit = 50; // Reset limit
+  currentLimit = 30; // Reset limit
   if (loadOlderButton) {
     loadOlderButton = null;
   }

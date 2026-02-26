@@ -3,6 +3,90 @@
 
 import { formatMessageTime, getStatusIcon, escapeHtml, highlightSearchQuery } from '../../services/chatService.js';
 
+function getApiUrl() {
+  if (typeof window === 'undefined') return '';
+  return window.location.hostname === "localhost" ? "http://localhost:5000" : `${window.location.protocol}//${window.location.hostname}:5000`;
+}
+
+/**
+ * Creates placeholder HTML for lazy-loaded media
+ * @param {string} messageId - Message ID for fetching media
+ * @param {string} type - WhatsApp message type (image, video, audio, document, etc.)
+ */
+function createMediaPlaceholder(messageId, type) {
+  const typeClass = type || 'image';
+  return `<div class="media-placeholder media-placeholder-${typeClass}" data-message-id="${escapeHtml(messageId)}" data-lazy-media>
+    <div class="media-placeholder-spinner"></div>
+    <span class="media-placeholder-text">טוען...</span>
+  </div>`;
+}
+
+/**
+ * Fetches media for a message and replaces the placeholder
+ * @param {HTMLElement} placeholder - The placeholder element
+ */
+async function loadMediaForPlaceholder(placeholder) {
+  const messageId = placeholder.dataset.messageId;
+  if (!messageId || placeholder.dataset.loading === 'true') return;
+  placeholder.dataset.loading = 'true';
+
+  try {
+    const response = await fetch(`${getApiUrl()}/api/chat/${messageId}/media`);
+    if (!response.ok) throw new Error('Failed to load media');
+    const media = await response.json();
+
+    const mediaContainer = placeholder.parentElement;
+    if (!mediaContainer) return;
+
+    let mediaHtml = '';
+    if (media.mimetype.startsWith('image/')) {
+      mediaHtml = `<img src="data:${media.mimetype};base64,${media.data}" alt="Image" class="message-media" loading="lazy" />`;
+    } else if (media.mimetype.startsWith('video/')) {
+      mediaHtml = `<video controls class="message-media"><source src="data:${media.mimetype};base64,${media.data}" /></video>`;
+    } else if (media.mimetype.startsWith('audio/')) {
+      mediaHtml = `<audio controls class="message-audio"><source src="data:${media.mimetype};base64,${media.data}" /></audio>`;
+    } else {
+      mediaHtml = `<div class="message-file">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>${escapeHtml(media.filename || 'קובץ')}</span>
+      </div>`;
+    }
+    placeholder.outerHTML = mediaHtml;
+  } catch (error) {
+    console.error('Error loading media for message', messageId, error);
+    placeholder.innerHTML = '<span class="media-placeholder-error">שגיאה בטעינת המדיה</span>';
+    placeholder.classList.add('media-placeholder-error');
+  }
+}
+
+/**
+ * Sets up IntersectionObserver for lazy-loading media placeholders
+ * @param {HTMLElement} messageElement - The message element that may contain a placeholder
+ */
+function setupLazyMediaObserver(messageElement) {
+  const placeholder = messageElement.querySelector('[data-lazy-media]');
+  if (!placeholder) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          loadMediaForPlaceholder(entry.target);
+          observer.unobserve(entry.target);
+        }
+      }
+    },
+    { rootMargin: '100px', threshold: 0.01 }
+  );
+  observer.observe(placeholder);
+}
+
 /**
  * Creates a message bubble element
  * @param {Object} message - Message object
@@ -44,6 +128,12 @@ export function createMessageBubble(message, searchQuery = '') {
       const bodyText = searchQuery ? highlightSearchQuery(message.body, searchQuery) : escapeHtml(message.body);
       content += `<div class="message-text">${bodyText}</div>`;
     }
+  } else if (message.hasMedia) {
+    content = createMediaPlaceholder(message.id, message.type);
+    if (message.body) {
+      const bodyText = searchQuery ? highlightSearchQuery(message.body, searchQuery) : escapeHtml(message.body);
+      content += `<div class="message-text">${bodyText}</div>`;
+    }
   } else {
     const bodyText = searchQuery ? highlightSearchQuery(message.body, searchQuery) : escapeHtml(message.body);
     content = `<div class="message-text">${bodyText}</div>`;
@@ -74,6 +164,9 @@ export function createMessageBubble(message, searchQuery = '') {
   
   // Add event listeners for actions
   setupMessageActions(messageDiv, message);
+
+  // Setup lazy load for media placeholder
+  setupLazyMediaObserver(messageDiv);
   
   return messageDiv;
 }

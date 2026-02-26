@@ -87,39 +87,18 @@ export const getMessages = async (req, res) => {
       messages = await chat.fetchMessages({ limit: parseInt(limit) });
     }
 
-    // Process messages to JSON format
-    const processedMessages = await Promise.all(
-      messages.map(async (msg) => {
-        const messageData = {
-          id: msg.id._serialized,
-          body: msg.body || "",
-          from: msg.from,
-          fromMe: msg.fromMe,
-          timestamp: msg.timestamp,
-          hasMedia: msg.hasMedia,
-          type: msg.type,
-          ack: msg.ack, // 0 = sent, 1 = delivered, 2 = read, 3 = played
-          isForwarded: msg.isForwarded,
-        };
-
-        // If has media, add media info (but don't download full media here - use separate endpoint)
-        if (msg.hasMedia) {
-          try {
-            const media = await msg.downloadMedia();
-            messageData.media = {
-              mimetype: media.mimetype,
-              data: media.data, // base64
-              filename: media.filename,
-            };
-          } catch (error) {
-            logError("Error downloading media for message", error);
-            messageData.media = null;
-          }
-        }
-
-        return messageData;
-      })
-    );
+    // Process messages to JSON format - media is lazy-loaded via /api/chat/:messageId/media
+    const processedMessages = messages.map((msg) => ({
+      id: msg.id._serialized,
+      body: msg.body || "",
+      from: msg.from,
+      fromMe: msg.fromMe,
+      timestamp: msg.timestamp,
+      hasMedia: msg.hasMedia,
+      type: msg.type,
+      ack: msg.ack, // 0 = sent, 1 = delivered, 2 = read, 3 = played
+      isForwarded: msg.isForwarded,
+    }));
 
     const responseData = {
       messages: processedMessages,
