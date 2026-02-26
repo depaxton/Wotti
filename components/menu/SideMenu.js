@@ -109,6 +109,9 @@ export function initSideMenu() {
       e.stopPropagation();
       if (!isMobile()) return;
       navigateToRoute("home");
+      // כשהמשתמש כבר במסך הבית (צ'אט עם משתמש) – hash לא משתנה ולכן hashchange לא יופעל.
+      // קוראים ל-goToHome ישירות כדי להחזיר לאנשי קשר גם במצב זה.
+      goToHome();
     });
   }
 
