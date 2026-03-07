@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initQRCodeDisplay();
   });
 
-  // Listen for contact selection to show chat interface
+  // Listen for contact selection - show choice (תזכורת | תשלום מהיר) then content
   document.addEventListener("contactSelected", async (e) => {
     const contact = e.detail.contact;
     const chatArea = document.querySelector(".chat-area");
@@ -80,19 +80,14 @@ document.addEventListener("DOMContentLoaded", () => {
       // Track contact selection in Analytics
       trackContactSelected(contact.id || contact.name, contact.name || "Unknown");
       
-      // Import and create chat area
-      const { createChatArea } = await import("./components/chat/ChatArea.js");
-      const { showChatArea, addMobileBackButtonToChat } = await import("./utils/mobileNavigation.js");
+      const { createContactActionChoice } = await import("./components/contactAction/ContactActionChoice.js");
+      const { showChatArea } = await import("./utils/mobileNavigation.js");
       
-      await createChatArea(contact);
+      chatArea.innerHTML = "";
+      await createContactActionChoice(contact, chatArea);
       
-      // Show chat area on mobile and add back button
+      // Show chat area on mobile (back button is built into ContactActionChoice)
       showChatArea();
-      
-      // Add mobile back button after a short delay to ensure chat header is rendered
-      setTimeout(() => {
-        addMobileBackButtonToChat();
-      }, 100);
     }
   });
 });

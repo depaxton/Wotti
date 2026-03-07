@@ -15,6 +15,12 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// לוג כל בקשה נכנסת (לפני CORS – כדי לראות גם בקשות שנחסמות)
+app.use((req, res, next) => {
+  console.log(`>>> בקשה התקבלה: ${req.method} ${req.url} | Origin: ${req.headers.origin ?? "none"}`);
+  next();
+});
+
 // Middleware - CORS must be first
 app.use(cors(CORS_OPTIONS));
 app.use(express.json({ limit: '10mb' }));

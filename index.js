@@ -11,6 +11,7 @@ import { initializeSystemTray, destroySystemTray } from "./services/systemTray.j
 import { logInfo, logError, logWarn } from "./utils/logger.js";
 import { initGeminiWhatsAppBridge } from "./services/geminiWhatsAppBridge.js";
 import { initMarketingUnsubscribeHandler } from "./services/marketingUnsubscribeHandler.js";
+import { startGrowSessionScheduler, stopGrowSessionScheduler } from "./services/growSessionService.js";
 import { cleanupAllProcesses } from "./utils/processCleanup.js";
 // הגדר שם תהליך (יופיע ב-Task Manager)
 if (process.env.PROCESS_NAME) {
@@ -43,6 +44,7 @@ async function main() {
       logInfo(`Server running on http://localhost:${PORT}`);
       logInfo(`Frontend available at http://localhost:${PORT}`);
       logInfo(`QR code API available at http://localhost:${PORT}/api/qr`);
+      startGrowSessionScheduler();
     });
 
     // Handle graceful shutdown
@@ -53,6 +55,7 @@ async function main() {
       // Stop schedulers first
       stopScheduler();
       stopMarketingDistributionScheduler();
+      stopGrowSessionScheduler();
 
       // Close HTTP server
       if (server) {

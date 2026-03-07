@@ -9,6 +9,7 @@ import { createBusinessHoursPanel } from '../businessHours/BusinessHours.js';
 import { createServiceCategoriesPanel } from '../serviceCategories/ServiceCategories.js';
 import { createReadyMessagesPanel } from '../readyMessages/ReadyMessagesPanel.js';
 import { createLogsPanel } from '../logs/LogsPanel.js';
+import { createGrowConnectionPanel } from '../grow/GrowConnectionPanel.js';
 import { isMobile, showContactsSidebar } from '../../utils/mobileNavigation.js';
 
 // מיפוי תת-URL (hash) → פונקציה שפותחת את הפאנל. ריענון על ה-URL יפתח את אותו מסך.
@@ -21,6 +22,7 @@ const ROUTE_MAP = {
   'ready-messages': createReadyMessagesPanel,
   'business-hours': createBusinessHoursPanel,
   'service-categories': createServiceCategoriesPanel,
+  'grow-connection': createGrowConnectionPanel,
   logs: createLogsPanel,
 };
 
@@ -187,6 +189,15 @@ export function initSideMenu() {
     });
   }
 
+  // GROW Connection Menu Item (התחברות ל-GROW – תצוגת מחשב בלבד)
+  const growConnectionMenuItem = document.getElementById("growConnectionMenuItem");
+  if (growConnectionMenuItem) {
+    growConnectionMenuItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigateToRoute("grow-connection");
+    });
+  }
+
   // Logs Menu Item (לוגים – תצוגת מחשב בלבד)
   const logsMenuItem = document.getElementById("logsMenuItem");
   if (logsMenuItem) {
@@ -243,6 +254,7 @@ function goToHome() {
     ".reminder-settings-panel",
     ".meeting-calendar-panel",
     ".ai-settings-panel",
+    ".grow-connection-panel",
     ".logs-panel",
     ".business-hours-panel",
     ".service-categories-panel",
@@ -254,6 +266,7 @@ function goToHome() {
     ".service-categories-modal-overlay",
     ".marketing-modal-overlay",
     ".appointment-edit-overlay",
+    ".meeting-edit-overlay",
   ];
 
   panelSelectors.forEach((sel) => {

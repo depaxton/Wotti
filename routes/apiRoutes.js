@@ -18,6 +18,7 @@ import {
   disconnectController
 } from "../controllers/googleCalendarController.js";
 import { getLogs, clearLogs } from "../controllers/logsController.js";
+import * as growController from "../controllers/growController.js";
 import { logError } from "../utils/logger.js";
 import multer from "multer";
 import fs from "fs-extra";
@@ -154,5 +155,12 @@ router.post("/google-calendar/disconnect", disconnectController);
 // Logs (תצוגת לוגים – צד שרת)
 router.get("/logs", getLogs);
 router.delete("/logs", clearLogs);
+
+// Grow (התחברות ל-GROW – שירות סליקה)
+router.get("/grow/status", growController.getStatusController);
+router.get("/grow/session", growController.getSessionController);
+router.post("/grow/cookies", growController.postCookiesController);
+router.post("/grow/disconnect", growController.postDisconnectController);
+router.post("/grow/refresh", growController.postRefreshController);
 
 export default router;

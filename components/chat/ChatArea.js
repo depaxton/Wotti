@@ -29,9 +29,12 @@ let currentLimit = 30; // Current limit for loading messages (starts at 30, incr
 /**
  * Creates and displays chat area for a contact
  * @param {Object} contact - Contact object
+ * @param {Object} [options] - Optional settings
+ * @param {HTMLElement} [options.target] - If provided, render into this element instead of .chat-area
+ * @param {boolean} [options.hideBackButton] - If true, don't add mobile back button (parent handles it)
  */
-export async function createChatArea(contact) {
-  const chatArea = document.querySelector(".chat-area");
+export async function createChatArea(contact, options = {}) {
+  const chatArea = options.target || document.querySelector(".chat-area");
   if (!chatArea) return;
 
   // Cleanup previous chat
@@ -108,14 +111,14 @@ export async function createChatArea(contact) {
     const header = createChatHeader(contact);
     headerContainer.appendChild(header);
 
-    // Add mobile back button if on mobile
+    // Add mobile back button if on mobile (skip when embedded in contact action choice)
     const { isMobile, createMobileBackButton, showContactsSidebar } = mobileNavModule;
-    if (isMobile()) {
+    if (isMobile() && !options.hideBackButton) {
       const backButton = createMobileBackButton(() => {
         // Clear chat area when going back
-        const chatArea = document.querySelector(".chat-area");
-        if (chatArea) {
-          chatArea.innerHTML = `
+        const areaToClear = document.querySelector(".chat-area");
+        if (areaToClear) {
+          areaToClear.innerHTML = `
             <div class="chat-placeholder" id="chatPlaceholder">
               <div class="placeholder-content">
                 <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">

@@ -15,14 +15,7 @@ const ALLOWED_ORIGINS = PUBLIC_URL
   : DEFAULT_ORIGINS;
 
 export const CORS_OPTIONS = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: (origin, callback) => callback(null, true), // מאפשר בקשות מכל מקור
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "Cache-Control"],

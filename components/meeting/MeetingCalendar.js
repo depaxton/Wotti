@@ -1,7 +1,16 @@
 // Meeting Calendar Component
 
 import { getDayName, getWeekStart, formatDateString, getCurrentDate, getDayIndex, getNextDayOfWeek, parseTime, parseDateString } from '../../utils/dateUtils.js';
+import { DAYS_OF_WEEK } from '../../config/reminderTemplates.js';
 import { toast } from '../toast/Toast.js';
+
+const MANUAL_PHONE = '__manual__';
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
 
 /**
  * Creates and returns the meeting calendar panel
@@ -262,9 +271,14 @@ export async function createMeetingCalendarPanel() {
                     <div class="meeting-title">${meeting.title || 'פגישה'}${meeting.duration ? ` <span class="meeting-duration">(${meeting.duration} דק')</span>` : ''}</div>
                     ${meeting.location ? `<div class="meeting-location">${meeting.location}</div>` : ''}
                   </div>
-                  <button type="button" class="meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                  </button>
+                  <div class="meeting-item-actions">
+                    <button type="button" class="meeting-edit-btn" aria-label="ערוך תזכורת" title="ערוך תזכורת">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button type="button" class="meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                  </div>
                 </div>
               `).join('')
           }
@@ -425,13 +439,12 @@ export async function createMeetingCalendarPanel() {
 
     const dayName = getDayName(date.getDay());
     const dayNumber = date.getDate();
-    const month = date.getMonth() + 1;
     const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
 
     modal.innerHTML = `
       <div class="day-details-content">
         <div class="day-details-header">
-          <h3>${dayName}, ${dayNumber} ${monthNames[month]}</h3>
+          <h3>${dayName}, ${dayNumber} ${monthNames[date.getMonth()]}</h3>
           <button class="close-day-details-btn" aria-label="סגור">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -455,10 +468,16 @@ export async function createMeetingCalendarPanel() {
                       ${meeting.description ? `<div class="day-meeting-description">${meeting.description}</div>` : ''}
                     </div>
                   </div>
-                  <button type="button" class="day-meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    <span>מחק</span>
-                  </button>
+                  <div class="day-meeting-actions">
+                    <button type="button" class="day-meeting-edit-btn" aria-label="ערוך תזכורת" title="ערוך תזכורת">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      <span>ערוך</span>
+                    </button>
+                    <button type="button" class="day-meeting-delete-btn" aria-label="מחק תזכורת" title="מחק תזכורת">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                      <span>מחק</span>
+                    </button>
+                  </div>
                 </div>
               `;
               }).join('')
@@ -493,6 +512,353 @@ export async function createMeetingCalendarPanel() {
         }
       });
     });
+
+    // Edit button in day details
+    modal.querySelectorAll('.day-meeting-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.day-meeting-item');
+        if (!item) return;
+        const reminderId = item.dataset.reminderId;
+        const phone = item.dataset.phone;
+        const meeting = meetings.find(m => m.phoneNumber === phone && (m.reminder?.id ?? m.id) === reminderId);
+        if (meeting) {
+          modal.remove();
+          showEditReminderModal(meeting, () => loadAndRender());
+        }
+      });
+    });
+  };
+
+  // Show edit reminder modal – full edit: category, treatment, date, time, user/name
+  const showEditReminderModal = async (meeting, onSuccess) => {
+    const r = meeting.reminder || {};
+    const hasDate = r.date && String(r.date).trim();
+    const dateMode = hasDate ? 'date' : 'day';
+    const todayStr = formatDateString(getCurrentDate());
+    const dayOptions = DAYS_OF_WEEK.map((d) => `<option value="${escapeHtml(d.label)}" ${r.day === d.label ? 'selected' : ''}>${escapeHtml(d.label)}</option>`).join('');
+    const isManual = meeting.phoneNumber === MANUAL_PHONE;
+    const nameBlock = isManual
+      ? `<label for="edit-reminder-name">שם *</label><input type="text" id="edit-reminder-name" value="${escapeHtml(r.clientName || '')}" required />`
+      : '';
+    const userBlock = !isManual
+      ? `
+        <label for="edit-reminder-contact-search">משתמש / איש קשר</label>
+        <input type="text" id="edit-reminder-contact-search" placeholder="חפש לפי שם או מספר טלפון..." autocomplete="off" />
+        <div id="edit-reminder-contact-list" class="meeting-edit-contact-list" data-selected-phone="${escapeHtml(meeting.phoneNumber || '')}">
+          <div class="meeting-edit-contact-loading">טוען אנשי קשר...</div>
+        </div>
+      `
+      : '';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'meeting-edit-overlay';
+    overlay.innerHTML = `
+      <div class="meeting-edit-modal" role="dialog" aria-label="עריכת תור">
+        <div class="meeting-edit-header">
+          <h3>עריכת תור</h3>
+          <button type="button" class="meeting-edit-close" aria-label="סגור">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="meeting-edit-body">
+          ${nameBlock}
+          ${userBlock}
+          <label for="edit-reminder-category">קטגוריה / סוג טיפול</label>
+          <select id="edit-reminder-category" class="meeting-edit-select">
+            <option value="">— בחר קטגוריה —</option>
+          </select>
+          <label for="edit-reminder-treatment">סוג טיפול</label>
+          <select id="edit-reminder-treatment" class="meeting-edit-select" disabled>
+            <option value="">— בחר טיפול —</option>
+          </select>
+          <label for="edit-reminder-time">שעה *</label>
+          <input type="time" id="edit-reminder-time" value="${escapeHtml(r.time || '')}" required />
+          <label for="edit-reminder-duration">משך (דקות) *</label>
+          <input type="number" id="edit-reminder-duration" min="1" step="1" value="${r.duration != null ? r.duration : 60}" required />
+          <fieldset class="meeting-edit-date-mode">
+            <legend>תאריך *</legend>
+            <label class="meeting-edit-radio"><input type="radio" name="edit-reminder-datemode" value="day" ${dateMode === 'day' ? 'checked' : ''} /> לפי יום בשבוע</label>
+            <label class="meeting-edit-radio"><input type="radio" name="edit-reminder-datemode" value="date" ${dateMode === 'date' ? 'checked' : ''} /> לפי תאריך מדויק</label>
+            <div class="meeting-edit-date-by-day ${dateMode === 'date' ? 'hidden' : ''}">
+              <label for="edit-reminder-day">יום</label>
+              <select id="edit-reminder-day">${dayOptions}</select>
+            </div>
+            <div class="meeting-edit-date-by-date ${dateMode === 'day' ? 'hidden' : ''}">
+              <label for="edit-reminder-date">תאריך</label>
+              <input type="date" id="edit-reminder-date" min="${todayStr}" value="${hasDate ? escapeHtml(r.date) : ''}" />
+            </div>
+          </fieldset>
+          <label for="edit-reminder-notes">הערות</label>
+          <textarea id="edit-reminder-notes" rows="3" placeholder="הערות...">${escapeHtml(r.notes || '')}</textarea>
+        </div>
+        <div class="meeting-edit-actions">
+          <button type="button" class="meeting-edit-save">שמור שינויים</button>
+        </div>
+      </div>
+    `;
+
+    const popup = overlay.querySelector('.meeting-edit-modal');
+    const close = () => {
+      overlay.remove();
+      document.body.style.overflow = '';
+    };
+
+    const categorySelect = overlay.querySelector('#edit-reminder-category');
+    const treatmentSelect = overlay.querySelector('#edit-reminder-treatment');
+    const durationInput = overlay.querySelector('#edit-reminder-duration');
+    const contactSearchInput = overlay.querySelector('#edit-reminder-contact-search');
+    const contactListDiv = overlay.querySelector('#edit-reminder-contact-list');
+
+    // Load categories
+    let categories = [];
+    try {
+      const catRes = await fetch(`${API_URL}/api/service-categories`);
+      const catData = catRes.ok ? await catRes.json() : {};
+      categories = Array.isArray(catData?.categories) ? catData.categories : [];
+      categories = categories.filter((c) => (c.name || '').trim() !== 'שירות כותרת');
+    } catch (e) {
+      console.warn('Could not load categories:', e);
+    }
+    categorySelect.innerHTML = '<option value="">— בחר קטגוריה —</option>';
+    categories.forEach((cat) => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = (cat.name || '').trim() || cat.id;
+      opt.dataset.category = JSON.stringify(cat);
+      if (r.categoryId === cat.id) opt.selected = true;
+      categorySelect.appendChild(opt);
+    });
+
+    // Populate treatments when category selected
+    const updateTreatments = () => {
+      const catOpt = categorySelect.selectedOptions[0];
+      treatmentSelect.innerHTML = '<option value="">— בחר טיפול —</option>';
+      treatmentSelect.disabled = true;
+      durationInput.value = String(r.duration != null ? r.duration : 60);
+      if (!catOpt?.value) return;
+      let category;
+      try {
+        category = catOpt.dataset.category ? JSON.parse(catOpt.dataset.category) : null;
+      } catch (_) {
+        category = null;
+      }
+      if (!category?.treatments?.length) return;
+      treatmentSelect.disabled = false;
+      (category.treatments || []).forEach((t) => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = (t.name || '').trim() || t.id;
+        opt.dataset.durationMinutes = String(t.durationMinutes != null ? t.durationMinutes : 30);
+        if (r.treatmentId === t.id) opt.selected = true;
+        treatmentSelect.appendChild(opt);
+      });
+      if (r.treatmentId) {
+        const trtOpt = treatmentSelect.querySelector(`option[value="${r.treatmentId}"]`);
+        if (trtOpt) {
+          trtOpt.selected = true;
+          const min = parseInt(trtOpt.dataset.durationMinutes, 10);
+          durationInput.value = Number.isFinite(min) && min >= 1 ? min : 60;
+        }
+      }
+    };
+    categorySelect.addEventListener('change', updateTreatments);
+    treatmentSelect.addEventListener('change', () => {
+      const opt = treatmentSelect.selectedOptions[0];
+      if (!opt?.value) {
+        durationInput.value = '60';
+        return;
+      }
+      const min = parseInt(opt.dataset.durationMinutes, 10);
+      durationInput.value = Number.isFinite(min) && min >= 1 ? min : 60;
+    });
+    updateTreatments();
+
+    // Load contacts for user selector with search (when not manual)
+    let allContacts = [];
+    const renderContactList = (filter = '') => {
+      if (!contactListDiv) return;
+      const q = (filter || '').trim().toLowerCase();
+      const filtered = q
+        ? allContacts.filter((c) => {
+            const name = ((c.name || '').trim() || '').toLowerCase();
+            const phone = (c.phone || '').toLowerCase();
+            return name.includes(q) || phone.includes(q);
+          })
+        : allContacts;
+      contactListDiv.innerHTML = '';
+      contactListDiv.dataset.selectedPhone = contactListDiv.dataset.selectedPhone || meeting.phoneNumber || '';
+      filtered.forEach((c) => {
+        const item = document.createElement('div');
+        item.className = 'meeting-edit-contact-item';
+        item.dataset.phone = c.phone;
+        const displayName = (c.name || '').trim() || c.phone;
+        item.textContent = `${displayName} (${c.phone})`;
+        if (c.phone === (contactListDiv.dataset.selectedPhone || '')) {
+          item.classList.add('selected');
+        }
+        item.addEventListener('click', () => {
+          contactListDiv.querySelectorAll('.meeting-edit-contact-item').forEach((el) => el.classList.remove('selected'));
+          item.classList.add('selected');
+          contactListDiv.dataset.selectedPhone = c.phone;
+        });
+        contactListDiv.appendChild(item);
+      });
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'meeting-edit-contact-empty';
+        empty.textContent = q ? 'לא נמצאו תוצאות' : 'אין אנשי קשר';
+        contactListDiv.appendChild(empty);
+      }
+    };
+    if (contactSearchInput && contactListDiv) {
+      contactSearchInput.addEventListener('input', () => renderContactList(contactSearchInput.value));
+      contactSearchInput.addEventListener('focus', () => renderContactList(contactSearchInput.value));
+      try {
+        const contactsRes = await fetch(`${API_URL}/api/contacts/json`);
+        const contactsData = contactsRes.ok ? await contactsRes.json() : {};
+        const contacts = contactsData.contacts && Array.isArray(contactsData.contacts) ? contactsData.contacts : [];
+        allContacts = contacts.map((c) => ({ phone: c.phone, name: (c.name || '').trim() || c.phone }));
+        if (!allContacts.some((c) => c.phone === meeting.phoneNumber) && meeting.phoneNumber) {
+          allContacts.push({ phone: meeting.phoneNumber, name: `${meeting.phoneNumber} (נוכחי)` });
+        }
+        renderContactList();
+      } catch (e) {
+        console.warn('Could not load contacts:', e);
+        contactListDiv.innerHTML = '<div class="meeting-edit-contact-empty">לא ניתן לטעון אנשי קשר</div>';
+      }
+    }
+
+    // Date mode toggle
+    const byDayEl = overlay.querySelector('.meeting-edit-date-by-day');
+    const byDateEl = overlay.querySelector('.meeting-edit-date-by-date');
+    overlay.querySelectorAll('input[name="edit-reminder-datemode"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        const isDay = overlay.querySelector('input[name="edit-reminder-datemode"]:checked').value === 'day';
+        byDayEl.classList.toggle('hidden', !isDay);
+        byDateEl.classList.toggle('hidden', isDay);
+      });
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+    overlay.querySelector('.meeting-edit-close').addEventListener('click', close);
+
+    overlay.querySelector('.meeting-edit-save').addEventListener('click', async () => {
+      const nameInput = overlay.querySelector('#edit-reminder-name');
+      const timeInput = overlay.querySelector('#edit-reminder-time');
+      const durationInputEl = overlay.querySelector('#edit-reminder-duration');
+      const daySelect = overlay.querySelector('#edit-reminder-day');
+      const dateInput = overlay.querySelector('#edit-reminder-date');
+      const notesInput = overlay.querySelector('#edit-reminder-notes');
+
+      const time = timeInput.value.trim();
+      const durationVal = Number(durationInputEl.value);
+      const duration = Number.isFinite(durationVal) && durationVal >= 1 ? Math.round(durationVal) : 60;
+      const dateModeVal = overlay.querySelector('input[name="edit-reminder-datemode"]:checked').value;
+      const dateStr = dateInput.value.trim();
+      const dayStr = daySelect.value.trim();
+
+      if (!time) {
+        timeInput.focus();
+        return;
+      }
+      if (isManual && nameInput) {
+        if (!nameInput.value.trim()) {
+          nameInput.focus();
+          return;
+        }
+      }
+      if (dateModeVal === 'date' && !dateStr) {
+        dateInput.focus();
+        return;
+      }
+
+      let title = 'פגישה';
+      let categoryId = null;
+      let treatmentId = null;
+      const catOpt = categorySelect.selectedOptions[0];
+      const trtOpt = treatmentSelect.selectedOptions[0];
+      if (catOpt?.value && trtOpt?.value && catOpt.dataset.category) {
+        try {
+          const category = JSON.parse(catOpt.dataset.category);
+          categoryId = category.id;
+          const treatment = (category.treatments || []).find((t) => t.id === trtOpt.value);
+          treatmentId = treatment ? treatment.id : null;
+          const catName = (category.name || '').trim() || 'שירות';
+          const trtName = treatment ? ((treatment.name || '').trim() || 'טיפול') : 'טיפול';
+          title = `${catName} - ${trtName}`;
+        } catch (_) {}
+      }
+
+      const newPhone = contactListDiv ? (contactListDiv.dataset.selectedPhone || meeting.phoneNumber) : meeting.phoneNumber;
+      const updated = {
+        ...r,
+        time,
+        duration,
+        title,
+        notes: notesInput.value.trim(),
+        date: dateModeVal === 'date' ? dateStr : null,
+        day: dateModeVal === 'day' ? dayStr : '',
+        categoryId: categoryId || null,
+        treatmentId: treatmentId || null
+      };
+      if (isManual && nameInput) updated.clientName = nameInput.value.trim();
+
+      try {
+        const oldPhone = meeting.phoneNumber;
+        if (newPhone !== oldPhone) {
+          // Move to different user: remove from old, add to new
+          const oldRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(oldPhone)}/reminders`);
+          const oldListRaw = oldRes.ok ? await oldRes.json() : [];
+          const oldList = Array.isArray(oldListRaw) ? oldListRaw : [];
+          const filtered = oldList.filter((item) => item.id !== r.id);
+          await fetch(`${API_URL}/api/users/${encodeURIComponent(oldPhone)}/reminders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reminders: filtered })
+          });
+
+          const newRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(newPhone)}/reminders`);
+          const newListRaw = newRes.ok ? await newRes.json() : [];
+          const newList = Array.isArray(newListRaw) ? newListRaw : [];
+          const withoutSame = newList.filter((item) => item.id !== r.id);
+          withoutSame.push(updated);
+          const saveRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(newPhone)}/reminders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reminders: withoutSame })
+          });
+          if (!saveRes.ok) throw new Error('Failed to save');
+        } else {
+          // Same user: update in place
+          const listRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(oldPhone)}/reminders`);
+          const list = listRes.ok ? await listRes.json() : [];
+          if (!Array.isArray(list)) throw new Error('Invalid response');
+          const idx = list.findIndex((item) => item.id === r.id);
+          if (idx < 0) throw new Error('Reminder not found');
+          list[idx] = updated;
+          const saveRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(oldPhone)}/reminders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reminders: list })
+          });
+          if (!saveRes.ok) throw new Error('Failed to save');
+        }
+        toast.success('התור עודכן בהצלחה');
+        close();
+        if (typeof onSuccess === 'function') onSuccess();
+      } catch (err) {
+        console.error('Failed to save reminder:', err);
+        toast.error(`שגיאה בשמירה: ${err.message || 'שגיאה לא ידועה'}`);
+      }
+    });
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+    const firstInput = overlay.querySelector(isManual ? '#edit-reminder-name' : '#edit-reminder-time');
+    if (firstInput) firstInput.focus();
   };
 
   // Get meetings for a specific date
@@ -501,8 +867,22 @@ export async function createMeetingCalendarPanel() {
     return meetings.filter(meeting => meeting.date === dateStr);
   };
 
-  // Delete button click (event delegation for week view meeting items)
+  // Edit and Delete button click (event delegation for week view meeting items)
   contentContainer.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".meeting-edit-btn");
+    if (editBtn) {
+      const item = editBtn.closest(".meeting-item");
+      if (!item) return;
+      const reminderId = item.dataset.reminderId;
+      const phone = item.dataset.phone;
+      const meeting = meetings.find(m => m.phoneNumber === phone && (m.reminder?.id ?? m.id) === reminderId);
+      if (meeting) {
+        e.preventDefault();
+        e.stopPropagation();
+        showEditReminderModal(meeting, () => loadAndRender());
+      }
+      return;
+    }
     const deleteBtn = e.target.closest(".meeting-delete-btn");
     if (!deleteBtn) return;
     const item = deleteBtn.closest(".meeting-item");

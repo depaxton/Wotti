@@ -83,6 +83,11 @@ export async function handleIncomingMessage(message) {
     return { handled: false };
   }
 
+  // התעלם מהודעות סטטוס/סטורי – שליחה אליהן תפרסם תשובות כסטורי בטעות
+  if (message.from === 'status@broadcast' || message.isStatus === true) {
+    return { handled: false };
+  }
+
   // הודעות מטעינת צ'אטים בהתחלה – לא לטפל, כדי שה-AI לא ייכנס לשיחות בטעות
   if (!message.fromMe && !isMessageConsideredNew(message)) {
     return { handled: false };
