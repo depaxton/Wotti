@@ -17,6 +17,7 @@ import {
 import { getUser } from './userService.js';
 import { getClient } from './whatsappClient.js';
 import { DEFAULT_PRE_REMINDERS } from '../utils/reminderValidation.js';
+import { initializeReminderStatus } from './reminderCalculator.js';
 import {
   parseTime,
   parseDateString,
@@ -597,8 +598,10 @@ async function handleBookAppointment(params, context) {
   if (treatmentId) newReminder.treatmentId = treatmentId;
   if (bufferMinutes != null) newReminder.bufferMinutes = bufferMinutes;
 
+  const initializedReminder = initializeReminderStatus(newReminder);
+
   const remindersBefore = [...freshReminders];
-  freshReminders.push(newReminder);
+  freshReminders.push(initializedReminder);
   await updateRemindersForUser(phone, freshReminders);
 
   const { syncUserRemindersToGoogleCalendar } = await import('./googleCalendarSyncService.js');

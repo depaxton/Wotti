@@ -105,12 +105,6 @@ export function calculateAllScheduledTimes(reminder) {
     const [hour, minute] = timeParts;
     mainTime = new Date(dateObj);
     mainTime.setHours(hour, minute, 0, 0);
-    
-    // For one-time reminders with specific date, if time has passed, don't schedule
-    if (reminder.type === 'one-time' && isPast(mainTime, 300)) {
-      // More than 5 minutes in the past, don't schedule
-      return null;
-    }
   } 
   // Handle day of week (old format)
   else if (reminder.day) {

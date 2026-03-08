@@ -277,7 +277,7 @@ async function processRetries() {
         let validation = validateReminder(reminder);
         if (!validation.valid) {
           const onlyDurationError = validation.errors.length === 1 &&
-            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+            validation.errors[0].startsWith('Duration must be');
           if (onlyDurationError) {
             toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
             validation = validateReminder(toProcess);
@@ -348,7 +348,7 @@ async function schedulerLoop() {
         let validation = validateReminder(reminder);
         if (!validation.valid) {
           const onlyDurationError = validation.errors.length === 1 &&
-            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+            validation.errors[0].startsWith('Duration must be');
           if (onlyDurationError) {
             toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
             validation = validateReminder(toProcess);
@@ -446,7 +446,7 @@ export async function initializeReminderStatuses() {
         let validation = validateReminder(reminder);
         if (!validation.valid) {
           const onlyDurationError = validation.errors.length === 1 &&
-            validation.errors[0] === 'Duration must be a number >= 15 and divisible by 15';
+            validation.errors[0].startsWith('Duration must be');
           if (onlyDurationError) {
             toProcess = { ...reminder, duration: normalizeDuration(reminder.duration) };
             await updateReminderStatus(phoneNumber, reminder.id, () => toProcess);
