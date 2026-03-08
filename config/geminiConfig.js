@@ -78,7 +78,7 @@ export function deleteApiKey() {
 
 // Default model configuration
 // Available models: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview
-const DEFAULT_MODEL = "gemini-3-flash-preview"; // Lite version with higher quota limits
+const DEFAULT_MODEL = "gemini-2.5-flash"; // Fast and stable version
 
 // Temperature - שליטה ברמת היצירתיות והאקראיות של התגובות
 // טווח: 0.0-2.0
@@ -104,7 +104,7 @@ const DEFAULT_TOP_K = undefined;
 // הגבלת טוקנים לפלט - שינוי הערך הזה יגביל את אורך התגובה של Gemini
 // טווח מומלץ: 100-8192 (תלוי במודל)
 // לדוגמה: 500 = תגובות קצרות, 2048 = תגובות בינוניות, 4096 = תגובות ארוכות
-const DEFAULT_MAX_TOKENS = 2000;
+const DEFAULT_MAX_TOKENS = 1200;
 
 // Candidate Count - כמה תגובות חלופיות ליצור
 // טווח: 1-8
@@ -126,7 +126,7 @@ const DEFAULT_SAFETY_SETTINGS = undefined;
 const DEFAULT_RESPONSE_MIME_TYPE = "text/plain";
 
 // Max History Messages - כמה הודעות אחרונות לשמור בהקשר
-const DEFAULT_MAX_HISTORY_MESSAGES = 60;
+const DEFAULT_MAX_HISTORY_MESSAGES = 30;
 
 export {
   GEMINI_API_KEY,

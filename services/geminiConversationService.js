@@ -206,11 +206,11 @@ export function updateAutoModeConfig(partial) {
 // =============== MESSAGE BATCHING SYSTEM ===============
 // מערכת לאיסוף הודעות שנשלחות ברצף ועיבודן יחד
 // הרעיון: אוספים הודעות, מחכים שהלקוח יסיים לכתוב, ורק אז שולחים ל-Gemini
-// התנהגות: 5 שניות לכל הודעה, מקסימום 30 שניות, הודעות תוך כדי עיבוד לסבב הבא
+// התנהגות: 4 שניות לכל הודעה, מקסימום 30 שניות, הודעות תוך כדי עיבוד לסבב הבא
 
 const pendingMessages = new Map();
 const processingLocks = new Map();
-const DELAY_PER_MESSAGE_MS = 5000;
+const DELAY_PER_MESSAGE_MS = 4000;
 const MAX_WAIT_TIME_MS = 30000;
 const PROCESSING_COOLDOWN_MS = 2000;
 
