@@ -130,14 +130,15 @@ export function parseDateString(dateStr) {
     return null;
   }
   
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) {
+  const normalized = dateStr.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T|\s)/);
+  if (!match) {
     return null;
   }
   
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-  const day = parseInt(parts[2], 10);
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+  const day = parseInt(match[3], 10);
   
   if (isNaN(year) || isNaN(month) || isNaN(day)) {
     return null;

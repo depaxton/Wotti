@@ -2,6 +2,7 @@
 // Validates reminder data structure and values
 
 import { DAYS_OF_WEEK } from '../config/reminderTemplates.js';
+import { formatDateString, parseDateString } from './dateUtils.js';
 
 const VALID_PRE_REMINDERS = ['30m', '1h', '1d', '3d', '1w'];
 
@@ -33,28 +34,26 @@ export function validateReminder(reminder) {
   }
   
   // Validate day or date (at least one must be present)
-  const hasDate = reminder.date && typeof reminder.date === 'string';
-  const hasDay = reminder.day && typeof reminder.day === 'string' && reminder.day.trim() !== '';
+  const rawDate = typeof reminder.date === 'string' ? reminder.date.trim() : '';
+  const rawDay = typeof reminder.day === 'string' ? reminder.day.trim() : '';
+  const hasDate = rawDate !== '';
+  const hasDay = rawDay !== '';
   
   if (!hasDate && !hasDay) {
     errors.push('Either day or date is required. Day must be a non-empty string, or date must be a string in YYYY-MM-DD format');
-  } else if (hasDay) {
-    // If day is provided, validate it
+  }
+  
+  if (hasDay) {
     const validDays = DAYS_OF_WEEK.map(d => d.label);
-    if (!validDays.includes(reminder.day)) {
-      errors.push(`Invalid day: ${reminder.day}. Must be one of: ${validDays.join(', ')}`);
+    if (!validDays.includes(rawDay)) {
+      errors.push(`Invalid day: ${rawDay}. Must be one of: ${validDays.join(', ')}`);
     }
-  } else if (hasDate) {
-    // If date is provided, validate format (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(reminder.date)) {
-      errors.push(`Invalid date format: ${reminder.date}. Must be YYYY-MM-DD`);
-    } else {
-      // Validate that it's a valid date
-      const dateObj = new Date(reminder.date);
-      if (isNaN(dateObj.getTime())) {
-        errors.push(`Invalid date: ${reminder.date}. Must be a valid date`);
-      }
+  }
+  
+  if (hasDate) {
+    const dateObj = parseDateString(rawDate);
+    if (!dateObj) {
+      errors.push(`Invalid date format: ${rawDate}. Must start with YYYY-MM-DD`);
     }
   }
   
@@ -119,13 +118,17 @@ export function normalizeReminder(reminder) {
   if (!reminder || typeof reminder !== 'object') {
     return null;
   }
+
+  const rawDate = typeof reminder.date === 'string' ? reminder.date.trim() : '';
+  const parsedDate = rawDate ? parseDateString(rawDate) : null;
+  const normalizedDate = parsedDate ? formatDateString(parsedDate) : (rawDate || null);
   
   return {
     id: reminder.id || `reminder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     createdAt: reminder.createdAt || new Date().toISOString(),
     day: reminder.day || '',
-    date: reminder.date || null, // Support for specific date
-    dateMode: reminder.dateMode || (reminder.date ? 'specific-date' : 'day-of-week'), // Track which mode was used
+    date: normalizedDate, // Support for specific date, canonicalized to YYYY-MM-DD when possible
+    dateMode: reminder.dateMode || (normalizedDate ? 'specific-date' : 'day-of-week'), // Track which mode was used
     time: reminder.time || '',
     duration: normalizeDuration(reminder.duration ?? 45),
     type: reminder.type || 'one-time',
