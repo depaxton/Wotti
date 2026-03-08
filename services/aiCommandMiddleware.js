@@ -336,13 +336,28 @@ async function handleQueryTreatments(params, context) {
   const category = await getCategoryById(categoryId);
   if (!category) return comment('serviceNotFound');
   const treatments = category.treatments || [];
-  if (treatments.length === 0) return comment('noTreatmentsAvailable');
+  // Allow booking even when category has no treatments: use category defaults as one synthetic option
+  // (fixes case where second category has 0 treatments in data and flow would otherwise stop)
+  const listForStorage =
+    treatments.length > 0
+      ? treatments.map((t) => ({ id: t.id, name: t.name, durationMinutes: t.durationMinutes, bufferMinutes: t.bufferMinutes }))
+      : [
+          {
+            id: `default_${categoryId}`,
+            name: 'טיפול (ברירת מחדל)',
+            durationMinutes: category.durationMinutes,
+            bufferMinutes: category.bufferMinutes,
+          },
+        ];
 
   const phone = context.userId ? toPhoneKey(context.userId) : 'global';
   lastTreatmentsByUser.set(phone, {
     categoryId,
-    list: treatments.map((t) => ({ id: t.id, name: t.name, durationMinutes: t.durationMinutes, bufferMinutes: t.bufferMinutes })),
+    list: listForStorage,
   });
+  if (treatments.length === 0) {
+    return '1. טיפול (ברירת מחדל)';
+  }
   return treatments.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
 }
 
@@ -595,7 +610,7 @@ async function handleBookAppointment(params, context) {
     categoryId: category.id,
     preReminder: DEFAULT_PRE_REMINDERS,
   };
-  if (treatmentId) newReminder.treatmentId = treatmentId;
+  if (treatmentId && !String(treatmentId).startsWith('default_')) newReminder.treatmentId = treatmentId;
   if (bufferMinutes != null) newReminder.bufferMinutes = bufferMinutes;
 
   const initializedReminder = initializeReminderStatus(newReminder);
@@ -685,7 +700,7 @@ async function handleListAppointments(params, context) {
  * [ABORT_BOOKING]
  */
 function handleAbortBooking(context) {
-  const key = context.userId || 'global';
+  const key = context.userId ? toPhoneKey(context.userId) : 'global';
   if (bookingTempState.has(key)) {
     bookingTempState.delete(key);
     logInfo(`[AI Middleware] ABORT_BOOKING: cleared temp state for ${key}`);
